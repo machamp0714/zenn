@@ -6,37 +6,38 @@ topics: ["terraform", "AWS"]
 published: false
 ---
 
-## はじめに
+# はじめに
 
-terraformを社内で初めて導入することが決まり、初めはネットではbackendにS3を指定している
-記事を良く見かけたので、弊社でも最初はS3を使っていたのですが、TerraformCloudの存在を
-知り、以下の点に魅力を感じTerraformCloudを導入することになりました。
+社内で初めてterraformを導入することなりました。terraformの開発経験のあるエンジニアが
+誰も居らず、試行錯誤しながらインフラのコード化を進めている状態です。
+初めは、S3をbackendに指定して開発を進めていたのですが、TerraformCloudの以下の点に
+魅力を感じ、TerraformCloudの導入を進めることになりました。
 
-### 監査ログが残る
+### 1. 監査ログが残る
 
 ![](https://storage.googleapis.com/zenn-user-upload/2cfc28fd7918a37eddf8111e.png)
 実行環境をTerraformCloudに移管すると、誰が・いつ・何のコマンドを実行したのかが
 ログとして残ります。インフラの開発はセキュリティ面も考慮する必要があると思うので、
 この様に監査ログが残るのは大変ありがたいです。
 
-### applyを承認制に出来る
+### 2. applyを承認制に出来る
 
 ![](https://storage.googleapis.com/zenn-user-upload/27f5a77c61a508eed8451c5c.png)
 TerraformCloudの設定でApplyMethodを`Manual apply`にして`terraform apply`を実行すると、
-こんな感じで承認フローを設定出来ます。この機能で例えば本番環境へのデプロイは承認が
-必須というようなワークフローを構築出来ます。
+こんな感じで承認フローを設定出来ます。例えば本番環境へのデプロイは承認が必須というような
+ワークフローを簡単に構築出来ます。
 
-### AWSのアクセスキーの管理が楽
+### 3. AWSのアクセスキーの管理が楽
 
 TerraformCloudを利用する前は、ローカルとGithubと２つの環境でAWSのアクセスキーを
 持っていたのですが、実行環境がTerraformCloudに統一されたので、TerraformCloudだけで
 アクセスキーを管理するだけで良くなりました。
 
-## 環境
+# 環境
 
 terraform 1.0.1
 
-## 1. Terraform Cloudの設定
+# 1. Terraform Cloudの設定
 
 ### workspaceを作成
 
@@ -44,18 +45,18 @@ terraform 1.0.1
 ![](https://storage.googleapis.com/zenn-user-upload/b55135d3bb45cbfc79dcea27.png)
 やりたいことはローカルとgithub actionsからterraformの各種コマンドを実行することなので、
 `API-driven workflow` を選択します。
-またディレクトリの構造は次の様になっており、今回は環境ごとにworkspaceを作っていきます。
+
 ```
 .
 ├── README.md
 ├── environments
-│   |── dev
+│   |── staging
 │   |   ├── main.tf
 │   |   ├── outputs.tf
 │   |   └── variables.tf
-|   |── staging
-|   |   |
 |   |── production
+|   |   |
+|   |── dev
 |   |   |
 ├── modules
 │   |── network
@@ -64,14 +65,16 @@ terraform 1.0.1
 │   |   └── variables.tf
 |   |
 ```
-一先ずステージング用としてworkspaceを作っていきます。
+現在ディレクトリ構造はこんな感じで各環境ごとにmain.tf置いて、開発を進めています。
+各環境ごとにworkspaceが必要になるのですが、ここではステージング環境のworkspaceを作る
+という前提で解説を進めて行きます。
 
 ### terraformのversionと作業ディレクトリを指定する
 
-次に「Settings」->「General」で、
+次に「Settings」タブ->「General」で、
 ![](https://storage.googleapis.com/zenn-user-upload/617582582c5f312f0ca17f4c.png)
-の様にversionと作業ディレクトリを指定します。
-今は開発用のworkspaceを作っているので、 `environments/staging` と指定します。
+の様にterraformのバージョンと作業ディレクトリを指定します。
+今はステージング用のworkspaceを作っているので、`environments/staging`と指定します。
 
 ### AWSアクセスキーを設定する
 
@@ -100,7 +103,7 @@ yesと入力すると、トークンが発行されます。
 
 これでTerraformCloudでやることは全て完了です！
 
-## 2. TerraformCloudをbackendとして指定する
+# 2. TerraformCloudをbackendとして指定する
 
 ```HCL
 terraform {
@@ -115,7 +118,7 @@ terraform {
 ```
 このコードをmain.tfに記述します。
 
-## 3. Github Actionsを設定する
+# 3. Github Actionsを設定する
 
 PRを作成した時に実行されるworkflowを作成します。実行内容は以下の通りです。
 
