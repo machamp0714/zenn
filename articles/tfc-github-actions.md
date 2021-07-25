@@ -10,7 +10,7 @@ published: false
 
 terraformを社内で初めて導入することが決まり、初めはネットではbackendにS3を指定している
 記事を良く見かけたので、弊社でも最初はS3を使っていたのですが、TerraformCloudの存在を
-知り、調べた結果、以下の点に魅力を感じTerraformCloudを導入することになりました。
+知り、以下の点に魅力を感じTerraformCloudを導入することになりました。
 
 ### 監査ログが残る
 
@@ -64,20 +64,20 @@ terraform 1.0.1
 │   |   └── variables.tf
 |   |
 ```
-一先ず開発用としてdevのworkspaceを作っていきます。
+一先ずステージング用としてworkspaceを作っていきます。
 
 ### terraformのversionと作業ディレクトリを指定する
 
 次に「Settings」->「General」で、
 ![](https://storage.googleapis.com/zenn-user-upload/617582582c5f312f0ca17f4c.png)
 の様にversionと作業ディレクトリを指定します。
-今は開発用のworkspaceを作っているので、 `environments/dev` と指定します。
+今は開発用のworkspaceを作っているので、 `environments/staging` と指定します。
 
 ### AWSアクセスキーを設定する
 
 「Variables」タブから環境変数を設定出来ます。
 ![](https://storage.googleapis.com/zenn-user-upload/7d19592bdb2c45dd0c202393.png)
-TFC上でterraformを実行するために、`AWS_ACCESS_KEY_ID`と`AWS_SECRET_ACCESS_KEY` を設定します。
+TerraformCloud上でterraformを実行するために、`AWS_ACCESS_KEY_ID`と`AWS_SECRET_ACCESS_KEY` を設定します。
 
 ### API TOKENを発行する
 
@@ -95,7 +95,7 @@ Do you want to proceed?
   Only 'yes' will be accepted to confirm.
 ```
 yesと入力すると、トークンが発行されます。
-これをgithubで「Settings」->「Secrets」に登録します。
+これをgithubで「Settings」->「Secrets」に移動して登録します。
 ![](https://storage.googleapis.com/zenn-user-upload/9279d0e2b025815871a1713d.png)
 
 これでTerraformCloudでやることは全て完了です！
