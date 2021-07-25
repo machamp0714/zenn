@@ -3,7 +3,7 @@ title: "TerraformCloudとgithub actionsを連携する"
 emoji: "😸"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["terraform", "AWS"]
-published: false
+published: true
 ---
 
 # はじめに
