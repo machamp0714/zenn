@@ -3,7 +3,7 @@ title: "Railsの日本語化とエラーメッセージのカスタマイズ"
 emoji: "🦁"
 type: "tech"
 topics: ["rails"]
-published: false
+published: true
 ---
 
 Rails を日本語化したり、エラーメッセージを修正するとき、いつも調べている気がするので
