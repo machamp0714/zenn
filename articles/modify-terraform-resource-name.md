@@ -3,7 +3,7 @@ title: "Terraformで作成済みリソース名を変更する方法"
 emoji: "🐈"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["terraform", "AWS"]
-published: false
+published: true
 ---
 
 terraform を書いていて、後になってresource名やmodule名を変えたくなる時があると思います。
@@ -19,6 +19,7 @@ terraform を書いていて、後になってresource名やmodule名を変え�
 
 ## 1. リソース名を変更すると...
 
+この様なVPCがあったとします。
 ```hcl
 resource "aws_vpc", "vpc_for_hoge" {
   cidr_block           = "10.0.0.0/16"
@@ -26,9 +27,7 @@ resource "aws_vpc", "vpc_for_hoge" {
   enable_dns_hostnames = true
 }
 ```
-
-このVPCを次のように変更します。
-
+このVPCをresource名を変更します。
 ```hcl
 resource "aws_vpc", "vpc_for_piyo" {
   cidr_block           = "10.0.0.0/16"
@@ -36,9 +35,7 @@ resource "aws_vpc", "vpc_for_piyo" {
   enable_dns_hostnames = true
 }
 ```
-
-この状態で plan を実行してみます。
-
+この状態でplanを実行してみます。
 ```hcl
   # aws_vpc.vpc_for_hoge will be destroyed
   - resource "aws_vpc" "this" {
@@ -93,7 +90,7 @@ terraformで開発する時、backendにS3やTerraformCloudを指定して開発
 $ terraform state pull > local.tfstate
 ```
 
-これで作業ディレクトリに `local.tfstate` という名前で tfstate を pull 出来ました。
+これで作業ディレクトリに `local.tfstate` という名前でtfstateをpull出来ました。
 
 ## 3. tfstateを編集する
 
@@ -107,7 +104,7 @@ tfstateも同時に生成されます。編集に失敗しても安心ですね�
 ## 4. planで差分がないか確認する
 
 念の為、ローカルでplanを実行して差分がないことを確認しましょう。
-まず、backendをローカルに変更します。
+その前にbackendをローカルに変更します。
 
 ```hcl
 # backend "remote" {
@@ -128,7 +125,7 @@ backendをローカルに変更したらplanをtfstateを指定して実行し�
 ```
 $ terraform plan -state=local.tfstate
 ```
-resourceに変更がないことが確認出来たら、backendをTerraformCloudに戻します。
+resourceに変更がないことが確認出来たら、backendをremoteに戻します。
 
 ```hcl
 backend "remote" {
@@ -149,5 +146,6 @@ $ terraform state push local.tfstate
 ```
 
 これでresourceの名前を変更することが出来ました。
+作業が完了したらlocal.tfstateとバックアップ用のtfstateを削除しましょう。
 
 resourceの名前を変えるだけでこんな手順を踏まないと行けないのかーと思ってしまいます(泣)
