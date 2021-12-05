@@ -1,18 +1,21 @@
 ---
-title: "(仮)Terraformで複数のリソースを作りたい時 ~for_each VS count~ 徹底比較"
+title: "terraformで複数リソースを作りたい時、countとfor_eachどちらを使うか"
 emoji: "⛳"
 type: "tech"
 topics: ["AWS", "terraform"]
 published: false
 ---
-## はじめに
 
-コードは[こちら](https://github.com/machamp0714/for_each_vs_count)
+terraformで複数リソースを作成する時、countかfor_eachを使うと思いますが、
+両者を適切に使い分けるためにそれぞれの挙動をまとめてみました。
+
+ソースコードは[こちら](https://github.com/machamp0714/for_each_vs_count)
 
 ## 目次
 
 1. countの場合
 2. for_eachの場合
+3. まとめ
 
 ## 1. countの場合
 
@@ -22,7 +25,7 @@ countの挙動を確かめるために下記の様にサブネットを作成し
 　
 ```hcl
 resource "aws_vpc" "this" {
-  cidr_block           = var.cidr_block
+  cidr_block  = var.cidr_block
 }
 
 resource "aws_subnet" "public" {
@@ -48,7 +51,7 @@ module "count" {
 ```
 
 countは作成したいリソースの数を指定することで複数リソースを作成出来ます。
-数を指定するだけなので `for_each` よりもシンプルに記述出来ます。
+作成したいリソースの数を指定するだけなので `for_each` よりもシンプルに記述出来ます。
 
 ### 作成した複数リソースをoutputしたい時
 
@@ -70,7 +73,7 @@ subnet_ids = [
 module.count.subnet_ids[0]
 ```
 と配列の番号を指定することになってしまい、これでは何のリソースを参照しているのか
-分かりません。この様に個別で参照する可能性が高い場合はcountは避けた方がいいと感じました。
+分かりにくいですね。 後述しますが `for_each` だとこの問題を解消することが出来ます。
 
 ### リソースを削除したい時
 途中でAZが `ap-northeast-1a` のサブネットを削除したくなったとします。
@@ -93,7 +96,7 @@ Terraform will perform the following actions:
 
   # module.count.aws_subnet.public[0] must be replaced
 -/+ resource "aws_subnet" "public" {
-      ~ arn                             = "arn:aws:ec2:ap-northeast-1:762742784206:subnet/subnet-06f995d8d74733a4b" -> (known after apply)
+      ~ arn                             = "arn:aws:ec2:ap-northeast-1:76345784206:subnet/subnet-06f995d8d74733a4b" -> (known after apply)
       ~ availability_zone               = "ap-northeast-1a" -> "ap-northeast-1c" # forces replacement
       ~ availability_zone_id            = "apne1-az4" -> (known after apply)
       ~ cidr_block                      = "10.0.1.0/24" -> "10.0.2.0/24" # forces replacement
@@ -108,7 +111,7 @@ Terraform will perform the following actions:
 
   # module.count.aws_subnet.public[1] will be destroyed
   - resource "aws_subnet" "public" {
-      - arn                             = "arn:aws:ec2:ap-northeast-1:762742784206:subnet/subnet-0bd46cfab1a7d126e" -> null
+      - arn                             = "arn:aws:ec2:ap-northeast-1:76274484206:subnet/subnet-0bd46cfab1a7d126e" -> null
       - assign_ipv6_address_on_creation = false -> null
       - availability_zone               = "ap-northeast-1c" -> null
       - availability_zone_id            = "apne1-az1" -> null
@@ -125,10 +128,10 @@ Terraform will perform the following actions:
 Plan: 1 to add, 0 to change, 2 to destroy.
 ```
 この様に `module.count.aws_subnet.public[0]` をreplaceする挙動となります。
-こんな時出来れば、 `ap-northeast-1c` のサブネットを残したまま、 `ap-northeast-1a` の
-サブネットを削除したいと思いますが、残念ながら現状出来ないみたいです。
+こんな時、出来れば `ap-northeast-1c` のサブネットを残したまま、 `ap-northeast-1a` の
+サブネットを削除したいと思いますが、残念ながら出来ません。
 
-ただstateを直接修正することで、既存のサブネットを残すことも出来ます。
+ただstateを直接修正することで、既存のサブネットを残したまま修正することも可能です。
 
 まず、stateを確認しましょう。
 ```
@@ -170,9 +173,6 @@ Plan: 0 to add, 0 to change, 1 to destroy.
 ```
 `1 to destroy` となってますね！
 これで `ap-northeast-1a` のサブネットのみ削除することが出来ました。
-
-countでリソースを作るときはoutputの挙動と削除する時の挙動を把握しておくのが
-良いと思いました。
 
 ## 2. for_eachを使う場合
 
@@ -227,7 +227,7 @@ output "subnet_ids" {
 ```
 `count` で作成した時と違い `list` で取得したい時は[for文](https://www.terraform.io/docs/language/expressions/for.html)を使う所に注意してください。
 また、個々のリソースを参照したい場合、上記の様に `aws_subnet.public["ap-northeast-1a"]` 
-とkeyで参照するので `count` で作成した時と比べて個々のリソースを参照しやすいことが分かります。
+とkeyで参照するので `count` で作成した時と比べて個々のリソースを参照しやすいですね。
 
 ### リソースを削除したい時
 
@@ -263,3 +263,9 @@ Terraform will perform the following actions:
 Plan: 0 to add, 0 to change, 1 to destroy.
 ```
 countと違い、stateを修正することなく特定のリソースを削除することが出来ます。
+
+## 3. まとめ
+
+個人的な考えになりますが、対象のリソースを他のリソースを作成する時に参照する必要がなく、
+ただ複数個作成作成出来れば良いという場合は `count` を使い、サブネットの様に個々の
+リソースを作成する必要がある場合は、 `for_each` を使うのが良いかなーと思いました。
