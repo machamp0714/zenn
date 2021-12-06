@@ -3,7 +3,7 @@ title: "terraformで複数リソースを作りたい時、countとfor_eachど�
 emoji: "⛳"
 type: "tech"
 topics: ["AWS", "terraform"]
-published: false
+published: true
 ---
 
 terraformで複数リソースを作成する時、countかfor_eachを使うと思いますが、
@@ -50,7 +50,7 @@ module "count" {
 }
 ```
 
-countは作成したいリソースの数を指定することで複数リソースを作成出来ます。
+countは作成したいリソースの数を指定することで複数リソース作成出来ます。
 作成したいリソースの数を指定するだけなので `for_each` よりもシンプルに記述出来ます。
 
 ### 作成した複数リソースをoutputしたい時
@@ -72,7 +72,7 @@ subnet_ids = [
 ```
 module.count.subnet_ids[0]
 ```
-と配列の番号を指定することになってしまい、これでは何のリソースを参照しているのか
+と配列の番号を指定することになってしまいこれでは何のリソースを参照しているのか
 分かりにくいですね。 後述しますが `for_each` だとこの問題を解消することが出来ます。
 
 ### リソースを削除したい時
@@ -149,7 +149,7 @@ terraform state mv module.count.aws_subnet.public[0] module.count.aws_subnet.pub
 ```
 terraform state mv module.count.aws_subnet.public[1] module.count.aws_subnet.public[0]
 ```
-この状態でplanを実行すると
+この状態でplanを実行すると...
 ```
 Terraform will perform the following actions:
 
@@ -181,7 +181,7 @@ Plan: 0 to add, 0 to change, 1 to destroy.
 countと同じくfor_eachの挙動を確認したいので、リソースを作ってみます。
 ```hcl
 resource "aws_vpc" "this" {
-  cidr_block           = var.cidr_block
+  cidr_block = var.cidr_block
 }
 
 resource "aws_subnet" "public" {
@@ -235,7 +235,7 @@ output "subnet_ids" {
 locals {
   public_subnets = {
     ap-northeast-1c = {
-      cidr_block        = "10.0.65.0/24"
+      cidr_block = "10.0.65.0/24"
     }
   }
 }
@@ -266,6 +266,11 @@ countと違い、stateを修正することなく特定のリソースを削除�
 
 ## 3. まとめ
 
-個人的な考えになりますが、対象のリソースを他のリソースを作成する時に参照する必要がなく、
-ただ複数個作成作成出来れば良いという場合は `count` を使い、サブネットの様に個々の
-リソースを作成する必要がある場合は、 `for_each` を使うのが良いかなーと思いました。
+対象のリソースを他のリソースを作成する時に参照する必要がなく、単純に複数個作成したい
+という場合は `count` を使い、サブネットの様に個々のリソースを参照する必要がある場合は
+`for_each` と使い分けるのが良いと思っています。
+
+## 参考資料
+
+https://www.terraform.io/docs/language/meta-arguments/count.html
+https://www.terraform.io/docs/language/meta-arguments/for_each.html
