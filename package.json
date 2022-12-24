@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "textlint articles/*.md"
+    "lint": "textlint articles/capacity-provider-asg.md"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +14,8 @@
     "textlint-rule-no-dropping-the-ra": "^3.0.0",
     "textlint-rule-preset-smarthr": "^1.13.3",
     "zenn-cli": "^0.1.108"
+  },
+  "devDependencies": {
+    "textlint-rule-preset-ja-technical-writing": "^7.0.0"
   }
 }

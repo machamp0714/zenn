@@ -1,13 +1,13 @@
 ---
 title: "CapacityProvider"
 emoji: "🐡"
-type: "tech" # tech: 技術記事 / idea: アイデア
+type: "tech"
 topics: ["AWS", "Terraform"]
 published: false
 ---
 ## はじめに
 
-AutoScalingGroup を導入しようと思ったきっかけ
+AutoScalingGroupを導入しようと思ったきっかけ
 
 ハマった経験
 
@@ -15,7 +15,7 @@ AutoScalingGroup を導入しようと思ったきっかけ
 
 [https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/asg-capacity-providers.html](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/asg-capacity-providers.html)
 
-ECS Capacity Provider を利用すると、 Auto Scaling Group を利用してクラスターに登録された EC2 インスタンスを管理することが出来る。
+ECS Capacity Providerを利用すると、 Auto Scaling Groupを利用してクラスターに登録されたEC2インスタンスを管理できる。
 
 Capacity Providerを利用するにあたってまず、 Auto Scaling Groupが必要になるので、
 
@@ -23,7 +23,7 @@ Capacity Providerを利用するにあたってまず、 Auto Scaling Groupが�
 
 ## Auto Scaling グループ を作成する
 
-Auto Scaling グループを作成する時は、 EC2 起動テンプレートを先に作る必要がある。
+Auto Scalingグループを作成するときは、 EC2起動テンプレートを先に作る必要がある。
 
 起動テンプレートに基づいてインスタンスが起動する
 
