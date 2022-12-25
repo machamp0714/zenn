@@ -1,34 +1,23 @@
 ---
-title: "Storybook"
+title: "StorybookをJestで再利用する"
 emoji: "🌊"
 type: "tech"
 topics: ["storybook", "jest", "typescript"]
 published: false
 ---
 
-この記事は何を解決するのか？
-自分と似た様な構成で開発している人のためになれば良い
+Jestでテストを書くとき、Storybookで設定したデコレーターと同じ設定を記述しなければ
+いけず、なんとかならないだろうかと思っていたところ、[@storybook/testing-react](https://github.com/storybookjs/testing-react) を利用すると
+StoryをJestで再利用することを知り早速試してみました。
+ただ所々エラーが発生したので解消方法を残しておこうと思います。
 
-対象
-- 最近 storybook をプロジェクトに導入した人
-- これから jest を書こうとしている人
+**対象**
+1. 最近Storybookをプロジェクトに導入した方
+2. Jestでフロントエンドのテストを頑張ろうと決意した方
 
-1. はじめに
-2. 読者対象
-3. jest のテストを書き直す => エラーが発生する
-4. 解決方法を試す
-5. エラーが発生するの解消方法を解説する(主題)
-   1. jest.config.js の修正
-   2. decorators.js
-   3. tailwind.cssをモックする
-   4. tsconfig.json を準備する => 書かなくても良いかも
-6. 再度、テストがパスすることを確認
+## Storyを再利用してjestを記述する
 
----
-
-### Story を再利用して jest を記述する
-
-まず [@storybook/testing-react](https://github.com/storybookjs/testing-react) をインストールします。
+まず`@storybook/testing-react`をインストールします。
 ```shell
 # npm の場合
 $ npm install --save-dev @storybook/testing-react
@@ -37,75 +26,119 @@ $ npm install --save-dev @storybook/testing-react
 $ yarn add -D @storybook/testing-react
 ```
 
-早速 jest で Story を利用する様に修正してみます。
-
-```typescript
+そして`@storybook/testing-react`のREADMEを参考にJestでストーリーを再利用する様に
+テストを修正します。
+```ts:index.spec.tsx
 import React from 'react';
 import { render, within } from '@testing-library/react';
 import { composeStories } from '@storybook/testing-react';
 import '@testing-library/jest-dom';
 
-import { TestStory } from './test.stories.tsx';
+import * as stories from './index.stories.tsx';
 
-describe('test', () => {
-  const { FilledSuccess } = composeStories(stories);
+describe('TaskForm', () => {
+  it('メッセージが表示されること', async () => {
+    const { Success } = composeStories(stories);
+    const { container } = render(<Success />);
+    const canvas = within(container);
+    Success.play({ canvasElement: container });
 
-  describe('リクエストが成功した時', () => {
-    it('アラートが表示されること', () => {
-      const { container } = render(<FilledSuccess />);
-      const canvas = within(container);
-
-      await FilledSuccess.play();
-      expect(screen.findByText('タスクが作成されました')).toBeInTheDocument();
-    });
+    expect(await canvas.findByText('タスクが作成されました')).toBeInTheDocument();
   });
 });
 ```
+:::details TaskFormコンポーネント
+```tsx: index.tsx
+import React from 'react';
 
-Storybook をレンダリングする際に
-```javascript
+export const TaskForm = () => {
+  // 省略
+
+  return (
+    <div>
+      <h1>タスク作成</h1>
+      <form onSubmit={handleSubmit} />
+        <div>
+          <label htmlFor="title">タスク名</label>
+          <input id="title" type="text" placeholder="タスク名を入力してください" />
+        </div>
+        <button type="submit">作成</button>
+      </form>
+    </div>
+  );
+};
+```
+:::
+:::details TaskFormストーリー
+```tsx: index.stories.tsx
+import { ComponentMeta, ComponentStoryObj } from '@storybook/react';
+import { userEvent, within } from '@storybook/testing-library';
+
+import { TaskForm } from './TaskForm';
+
+type Story = ComponentStoryObj<typeof TaskForm>;
+
+export default {
+  component: TaskForm,
+} as ComponentMeta<typeof TaskForm>;
+
+export const Default: Story = {}
+
+export const Success: Story = {
+  ...Default,
+  play: ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    userEvent.type(canvas.getByLabelText('タスク名'), 'title');
+    userEvent.click(canvas.getByText('作成'));
+  },
+};
+```
+:::
+Storybookではデコレーターを使用しているのでセットアップファイルを`jest.config.js`で読み込むように構成を変更します。
+```js:setup.jest.js
+import { setGlobalConfig } from '@storybook/testing-react';
+import * as globalStorybookConfig from './.storybook/preview';
+
+setGlobalConfig(globalStorybookConfig);
+```
+:::details preview.js
+```js:.storybook/preview.js
+import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import '../app/assets/stylesheets/application.tailwind.css';
+
+export const parameters = {
+  actions: { argTypesRegex: '^on[A-Z].*' },
+  controls: {
+    matchers: {
+      color: /(background|color)$/i,
+      date: /Date$/,
+    },
+  },
+};
 
 const client = new QueryClient();
-
-export const Decorator = (Story) => (
+const BaseDecorator = (Story) => (
   <QueryClientProvider client={client}>
     <Story />
   </QueryClientProvider>
 );
+
+export const decorators = [BaseDecorator];
 ```
-この様なデコレータを設定していたので、テストを実行すると次のエラーが発生しました。
-`@storybook/testing-react` のREADMEを読むと
-> If you have global decorators/parameters/etc and want them applied to your stories when testing them, you first need to set this up. You can do this by adding to or creating a jest setup file:
-という記述が見つかるので、こちらを試してみます。
-
-```javascript
-import { setGlobalConfig } from '@storybook/testing-react';
-import * as globalStorybookConfig from './.storybook/preview'; // path of your preview.js file
-
-setGlobalConfig(globalStorybookConfig);
-```
-
-ここで `preview.js` の内訳を提示するのが良さそう。
-
-を新たに作成し、
-```javascript
+:::
+```js:jest.config.js
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 
 module.exports = {
   roots: ["<rootDir>/app/javascript/src"],
   preset: 'ts-jest',
-  testMatch: [
-    "**/__tests__/**/*.+(ts|tsx|js)",
-    "**/?(*.)+(spec|test).+(ts|tsx|js)"
-  ],
   testEnvironment: 'jsdom',
   setUpFiles: ['./setup.jest.js']
 };
 ```
-`jest.config.js` で読み込みます。
-
-再度テストを実行すると、こちらのエラーが発生しました。
+この状態でテストを実行すると..。
 ```
 Jest encountered an unexpected token
 
@@ -115,22 +148,20 @@ Out of the box Jest supports Babel, which will be used to transform your files i
 
 Details:
 
-/Users/ooidetatsuya/repo/rails7-template/app/javascript/src/test/setup.jest.js:1
+/Users/machmap/repo/test/app/frontend/src/test/setup.jest.js:1
 ({"Object.<anonymous>":function(module,exports,require,__dirname,__filename,jest){import { setGlobalConfig } from '@storybook/testing-react';
                                                                                       ^^^^^^
 
 SyntaxError: Cannot use import statement outside a module
 ```
+こちらのエラーが発生しました。`Node.js` では `import/export` 構文を使用することが
+できないので、Jestは `setup.jest.js` の解析に失敗している様です。
 
-`presets` を変更し `allowJs` を `true` に変更すると行ける。
+## ts-jestのpresetを変更する
 
-`Node.js` では `import/export` 構文を使用することが出来ないので、
-Jest は `setup.jest.js` の解析に失敗している様です。
-
-https://kulshekhar.github.io/ts-jest/docs/guides/esm-support
-こちらの記事によると `ts-jest` は ESM をサポートしているので、 `ts-jest` が
-提供している `presets` を利用するように `jest.config.js` を修正します。
-
+https://kulshekhar.github.io/ts-jest/docs/getting-started/presets
+ `ts-jest` はESMに変換してくれる`presets`を提供してくれているので、そちらを使用する様に
+ `jest.config.js`を修正します。
 ```diff js:jest.config.js
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 
@@ -138,43 +169,26 @@ module.exports = {
   roots: ["<rootDir>/app/javascript/src"],
 - preset: 'ts-jest',
 + preset: 'ts-jest/presets/js-with-ts-esm',
-  testMatch: [
-    "**/__tests__/**/*.+(ts|tsx|js)",
-    "**/?(*.)+(spec|test).+(ts|tsx|js)"
-  ],
   testEnvironment: 'jsdom',
   setUpFiles: ['./setup.jest.js']
 };
 ```
-この `preset` を使うには `tsconfig.json` で `allowJs` を `true` にする必要があります。
-``` diff json:tsconfig.json
-{
-  "compilerOptions": {
-    "target": "es2016",
-    "lib": [],
-    "jsx": "react",
--   "allowJs": false,
-+   "allowJs": true,
-  },
-  "exclude": ["node_modules"]
-}
-```
+:::message
+この`preset`を使用するにはtsconfig.jsonで`allowJs`を`true`に変更する必要があります
+:::
 再度テストを実行します。
 
 ```
-Details:
+ Details:
 
-/Users/ooidetatsuya/repo/rails7-template/.storybook/preview.js:1
-({"Object.<anonymous>":function(module,exports,require,__dirname,__filename,jest){import '../app/assets/stylesheets/application.tailwind.css';
-                                                                                      ^^^^^^
-
-SyntaxError: Cannot use import statement outside a module
+/Users/machamp/repo/test/app/assets/stylesheets/application.tailwind.css:1
+({"Object.<anonymous>":function(module,exports,require,__dirname,__filename,jest){@tailwind base;
 ```
-次は `tailwind.css` を import している所でエラーが発生してしまいました。
-どうやら jest は CSS や画像も js としてインポートしてしまうのでエラーが発生する様です。
+今度は`tailwind`をimportしているところでエラーが発生しました。
 
-[jest-transform-stub](https://github.com/eddyerburgh/jest-transform-stub) を使って CSSや画像ファイルをモック化
-することでこちらのエラーには対応します。
+## CSSではなくモックを読み込む様に修正する
+
+[jest-transform-stub](https://github.com/eddyerburgh/jest-transform-stub) を使って`tailwind`をモック化することでこのエラーには対応できます。
 
 ```diff js:jest.config.js
 /** @type {import('ts-jest').JestConfigWithTsJest} */
@@ -194,4 +208,4 @@ module.exports = {
 };
 ```
 を追加します。
-これで再度テストを実行した所問題なくパスしました。
+これで再度テストを実行したところ、テストがパスしました🎉
