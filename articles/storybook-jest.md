@@ -1,19 +1,15 @@
 ---
 title: "StorybookをJestで再利用する"
-emoji: "🌊"
+emoji: "🎄"
 type: "tech"
 topics: ["storybook", "jest", "typescript"]
-published: false
+published: true
 ---
 
-Jestでテストを書くとき、Storybookで設定したデコレーターと同じ設定を記述しなければ
-いけず、なんとかならないだろうかと思っていたところ、[@storybook/testing-react](https://github.com/storybookjs/testing-react) を利用すると
-StoryをJestで再利用することを知り早速試してみました。
-ただ所々エラーが発生したので解消方法を残しておこうと思います。
-
-**対象**
-1. 最近Storybookをプロジェクトに導入した方
-2. Jestでフロントエンドのテストを頑張ろうと決意した方
+Jestでテストを書く際、Storybookを描画するために設定したデコレーターと同じ設定を
+記述しなければいけないのが面倒だなと思っていたところ、[@storybook/testing-react](https://github.com/storybookjs/testing-react) を
+利用するとStoryをJestで再利用出来ると知り早速試してみました。
+その際にエラーが所々発生したので解消方法を残しておこうと思います。
 
 ## Storyを再利用してjestを記述する
 
@@ -95,6 +91,7 @@ export const Success: Story = {
 };
 ```
 :::
+
 Storybookではデコレーターを使用しているのでセットアップファイルを`jest.config.js`で読み込むように構成を変更します。
 ```js:setup.jest.js
 import { setGlobalConfig } from '@storybook/testing-react';
@@ -128,17 +125,17 @@ const BaseDecorator = (Story) => (
 export const decorators = [BaseDecorator];
 ```
 :::
-```js:jest.config.js
+```diff js:jest.config.js
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 
 module.exports = {
   roots: ["<rootDir>/app/javascript/src"],
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
-  setUpFiles: ['./setup.jest.js']
++ setUpFiles: ['./setup.jest.js']
 };
 ```
-この状態でテストを実行すると..。
+この状態でテストを実行すると..
 ```
 Jest encountered an unexpected token
 
@@ -155,7 +152,7 @@ Details:
 SyntaxError: Cannot use import statement outside a module
 ```
 こちらのエラーが発生しました。`Node.js` では `import/export` 構文を使用することが
-できないので、Jestは `setup.jest.js` の解析に失敗している様です。
+できないので、Jestは `setup.jest.js` のパースに失敗している様です。
 
 ## ts-jestのpresetを変更する
 
@@ -184,9 +181,9 @@ module.exports = {
 /Users/machamp/repo/test/app/assets/stylesheets/application.tailwind.css:1
 ({"Object.<anonymous>":function(module,exports,require,__dirname,__filename,jest){@tailwind base;
 ```
-今度は`tailwind`をimportしているところでエラーが発生しました。
+今度は`preview.js`の`tailwind`を`import`している箇所でエラーが発生しました。
 
-## CSSではなくモックを読み込む様に修正する
+## CSSをモック化
 
 [jest-transform-stub](https://github.com/eddyerburgh/jest-transform-stub) を使って`tailwind`をモック化することでこのエラーには対応できます。
 
@@ -208,4 +205,5 @@ module.exports = {
 };
 ```
 を追加します。
+
 これで再度テストを実行したところ、テストがパスしました🎉
