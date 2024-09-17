@@ -6,65 +6,142 @@ topics: ["Rails", "React"]
 published: false
 ---
 
-こんにちは！machampです。
+### はじめに
 
-この記事では、React を採用した理由、それによって生じた技術的な課題、その課題に対してどう対応したか、
-またどのように開発を進めていったか紹介しようと思います。
+今まで jQuery や Stimulus でしかフロントエンドを書いたことがなかった Rails エンジニアが
+技術選定から開発まで関われる案件に参画する機会があり、その際に React をフロントエンドの開発に採用したので、なぜ採用したのか、開発上の課題、どう開発を進めたのかを自分の考えを再度整理することも兼ねて記事にしました。
 
-## React を採用した理由
+### React を採用した理由
 
-今回私が担当した案件では以下のような課題がありました。
+Rails7 からは Hotwire がありますが、今回は採用を見送りました。
 
-- 複雑なフォームの実装。(入力項目が多い、配列要素の操作、配列の中にさらに配列がある)
-- さらにユーザーからの要望が複雑化する可能性があった
-- 利用制限が厳しい外部サービスとの連携
-- モーダル上で操作することが多い
+Hotwire は全く触ったことがなかったため、 [Hotwireの良かった点、辛かった点、向いているケース、向いていないケース](https://nekorails.hatenablog.com/entry/2022/05/16/170434) を読みましたが、今回私が担当した案件にはマッチしていないと考えました。
 
-私は今まで `jQuery` や `Stimulus` を使用した開発しか経験がありませんでした。
+記事の中で
 
-- 最初はどのようなフォルダ構造にすれば良いのか分からなかった
-    - 初期状態でRailsの様に `controllers`  `models` のようなフォルダが存在しないから
-        - 検索していると参考になりそうなリポジトリが見つかったからそれを参考にした
-            - `features` `pages` の様なフォルダを作成していった
-    - `pages` `components` `features` `lib` のような構造になっている
-        - pages
-            - 最終的なアウトプット。 `components` `features` を呼び出してページを構成。
-            - Rails の `views` に相当するフォルダ
-        - features
-            - 顧客のご要望を実現するための機能をまとめたフォルダ
-            - API を呼び出すコードやフォームを含む
-        - components
-            - `Button`  や `Modal` のような汎用的なコンポーネントを置くフォルダ
-        - lib
-            - アプリケーション全体で使用されるコード
-            - `axios` や `react-query` などを含む
-    - `features` の構成について
-        - components
-            - `CreateReservation.tsx` や `ListReservations` で構成されている
-        - hooks
-            - useCreateReservation
-        - schemas
-    - フォルダの構造が上記の通りで依存についても注意した
-        - ここはまだ書かない
-        - 上位のフォルダから下位のフォルダに依存するようにした
-        - `pages` は `components` `features` に依存し、 `features` は `components` に依存するといったように
-        - 実際、このような設計にすることである程度アプリケーションが出来てくると、変更がある場合は、新しい feature を追加するか既存の feature に変更が入るか
-- 状態管理について
-    - React の状態管理は redux, Recoil, jotai などたくさんライブラリが存在してどれを採用するのが良いのか分からない
-    - なんとなく学習コストが高いイメージがあった
-    - まず、今回の要件でどのような「状態」を管理する必要があるのかを考えた。記事を参考にした。
-        - Server Cache State
-            - Tanstack Query
-        - Global State
-            - context + hooks
-            - [React-toastify](https://fkhadra.github.io/react-toastify/introduction)
-    - 上記に加えてフォームの状態も管理する必要がある
-        - これは react-hook-form を採用した
-    - なんとなく React といったら Redux！というイメージがありましたが、今は要件によっては状態管理のライブラリは採用しなくても良いのかなーと思いました。
-- **Storybook**
-    - コンポーネントのカタログとしてではなく、UI の開発を効率よく進めるために Storybook も導入しました
-    - 導入目的
-        - [Args](https://storybook.js.org/docs/writing-stories/args) で UI の振る舞いをテストする
-        - Play function でインタラクションをテストする
-            - サンプルコードを書く
-    - API から取得したデータを表示する部分は MSW を使用した
+> Hotwireを使う際にはStimulus（というかJS）をできるだけ書かずに、サーバーサイドにロジックを寄せてTurboで処理するというのもポイントかなと思います。JSを書く量が増えるほどHotwireの良さが消えていき、React + TSを使いたくなります。
+> 
+
+という指摘がありますが、今回はフロントエンドで JS の記述量が多くなることが明らかだったので、 React + TypeScript の採用を検討し始めました。
+
+また、ユーザーの権限に応じて機能が変わったり、UI も変わるので各状態ごとの UI を把握しにくくなることが課題として上がっていました。こちらの課題には Storybook が解決してくれそうで、かつ React とも相性が良かったので、こちらも React 採用のモチベーションに繋がりました。
+
+### Rails の開発に React を取り入れる方法
+
+これに関しては [mastodon](https://github.com/mastodon/mastodon) を参考にしました。mastodon では React と haml が混在していて、 React で UI を構築する場合は、 `mastodon` という `id` 属性を持つ DOM を記述した HTML をレンダリングし、その DOM 要素にコンポーネントを追加する、という方針をとっていました。
+
+このやり方は React の採用以外にあまり新しいことを取り入れたくなかった私にとってはベストな方針でした。どうしたかというと、 `javascript` フォルダに `src` というフォルダを作成し、
+
+そこに下記の `index.tsx` を作成し、 `application.ts` で `src` を import するだけで画面に `Hello, World!` が表示されます！
+
+```tsx
+const mountNode = document.getElementById('root');
+
+if (mountNode) {
+	const root = createRoot(mountNode);
+
+	root.render(
+		<React.StrictMode>
+		  <App />
+	  </React.StrictMode>
+	);
+}
+```
+
+```tsx
+const App = () => {
+	return <div>Hello, World!</div>;
+}
+```
+
+とりあえず React で UI を構築出来る準備はこれで完了なのですが、フォルダの設計や状態管理などまだまだ考えないといけないことがたくさんあります。これらの課題に対してどう対応したのか、これから書いていこうと思います。
+
+### フォルダ設計
+
+一番悩んだ所です！というか今も悩んでます(笑)
+
+私は `rails new` した時に生成される `javascript` フォルダを `frontend` に変更して、
+
+さらに `src` を作成し、そこに React のコードをまとめることにしました。
+
+つまり、最初は空っぽの状態から開発が始まるので、どうやってフォルダを分けて行けば良いかわかりませんでした。
+
+フロントエンド の設計について語られている記事はたくさんありますが、多くの記事から参照されているリポジトリがありました。フロントエンド界隈では有名なようですが、 [bulletproof-react](https://github.com/alan2207/bulletproof-react) です。こちらは「package by feature」と呼ばれる設計手法についてまとめられています。
+
+package by feature を採用して得られるメリットとしては、機能ごとにフォルダを分けるので、どこを読めば良いのか把握しやすく、またフォルダを開いたときに大量のファイルが出てくることを避けられると思いました。これは自分が求めていたものなので、まず上記のリポジトリの構成をベースにフォルダ設計を考えていくことにしました。
+
+詳しくはこちらを参考にしてください。 https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md
+
+そして、最終的にフォルダ構成はこんな感じになりました。全てを同じ構造にした訳ではなくプロジェクトの規模感などを考慮して一部アレンジしています。
+
+```
+.
+└── src
+    ├── App.tsx
+    ├── __mocks__
+    ├── components
+    ├── **features**
+    ├── hooks
+    ├── index.tsx
+    ├── lib
+    ├── **pages**
+    ├── providers
+    ├── routes
+    ├── test
+    ├── types
+    └── utils
+```
+
+ほとんどが**「**Project Structure」の章で解説されている通りなのですが、一部アレンジを加えた部分があるので、そこだけ解説していこうと思います。
+
+| フォルダ | 役割 |
+| --- | --- |
+| pages | `#root` DOM 配下に追加されるコンポーネント |
+| features | 機能単位で分割されたコード。  例）Calendar, Reservation |
+
+`pages` 配下のコンポーネントは `features` と `components` のファイルで構成され、 `#root` 下に展開されるので、これが最終的なアウトプットになります。 また `pages` に関しては必ず Story を描くようにしていました。 Storybook に関しては後述します。
+
+```
+.
+├── todos
+│   ├── index.stories.tsx
+│   └── index.tsx
+└── users
+    ├── index.stories.tsx
+    └── index.tsx
+```
+
+次に`features` フォルダの中身の解説です。
+
+| components | 特定の機能のためのコンポーネント 例) CreateTodo.tsx, DeleteTodo.tsx… |
+| --- | --- |
+| api | API リクエストを行う hooks。 TanStack Query を使用しています。 |
+| schemas | react-hook-form で使用する zod で定義したスキーマ |
+| types | OpenAPI で自動生成された型 |
+
+`features` の中身は `components` と `api` は bulletprofe-react を完全にパクってて、 `components` には フォームやAPI から取得したデータの一覧を表示するコンポーネントが、
+
+`api` には API リクエストのための関数が置かれていて、 TanStack Query を採用しています。
+
+`schemas` はフォームの実装に使用する [zod](https://github.com/colinhacks/zod) で書かれたスキーマを置きました。
+
+```tsx
+const todoSchema = z.object({
+	title: z.string(),
+	content: z.string(),
+});
+
+type TodoSchema = z.infer<typeof todoSchema>;
+```
+
+「bulletproof-react」では `api` に書かれているのですが、フォームが巨大だったので別のフォルダに分けることにしました。
+
+`types` には [openapi-typescript](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-typescript) で生成された型をインポートしています。
+
+```tsx
+import type { components } from '@/swagger';
+
+export type Todo = components['schemas']['todo'];
+```
+
+API のレスポンスの型は OpenAPI を使用して自動生成しています。
