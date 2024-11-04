@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "textlint articles/capacity-provider-asg.md"
+    "lint": "textlint articles/react-rails-structure.md"
   },
   "keywords": [],
   "author": "",
