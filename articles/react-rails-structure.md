@@ -285,26 +285,19 @@ MSW は API リクエストをインターセプトすることで、リクエ�
 ```typescript
 import { http, HttpResponse } from 'msw'
 
-export const handlers = ({ status }: { status: TodoStatus }) => [
+export const todoHandlers = () => [
   http.get<never, never, TodosResponse, '/todos'>('/todos', () => {
-    return HttpResponse.json([
-      {
-        id: 1,
-        title: 'zennに記事を投稿する',
-        status: 'completed'
-      },
-      {
-        id: 2,
-        title: 'Rustの勉強',
-        status: 'incomplete'
-      }
-    ])
+    return HttpResponse.json(todos)
   }),
   http.post<TodoParams, never, Todo, '/todo/:id'>('/todo/:id', ({ params }) => {
     const { id } = params;
-    const todo = todos.find(todo => todo.status === status) as Todo;
+    const todo = todos.find(todo => todo.id === id);
 
-    return HttpResponse.json(todo)
+    if (todo) {
+      return HttpResponse.json(todo)
+    }
+
+    return new HttpResponse(null, { status: 404 })
   })
 ];
 ```
@@ -314,24 +307,26 @@ Storybook で MSW を使用するには [msw-storybook-addon](https://storybook.
 #### 2. 多様なデータ状態のテスト
 
 各状態のStoryを定義することで、様々なデータ状態を一覧で確認できるようにしました。
+新しく入ったメンバーが一々自分でデータの準備をすることなく、UI を閲覧できるように
+しておきたかったというのもあります。
 
 ```ts
-export const Completed = {
-  name: '完了',
+export default {
+  title: 'Pages/Todo',
+  component: Todo,
   parameters: {
     msw: {
-      handlers: [todoHandlers({ status: 'completed' })],
+      handlers: todoHandlers,
     },
   },
+} as Meta<typeof Todo>;
+
+export const Completed = {
+  name: '完了'
 }
 
 export const Incomplete = {
-  name: '未完了',
-  parameters: {
-    msw: {
-      handlers: [todoHandlers({ status: 'incomplete' })],
-    },
-  },
+  name: '未完了'
 }
 ```
 
@@ -376,5 +371,119 @@ const currentUserDecorator = (Story, context) => {
 ```
 
 ## APIレスポンスの型を自動生成する
+
+TypeScript を採用する大きなメリットの一つは、型安全性です。
+せっかく TypeScript を使用しているので API のレスポンスの型が欲しいです。
+
+### 当初の構想：zod による手動定義
+
+最初は zod を使用して型を手動で定義し、ランタイムでの型検証を行うことを検討しました。
+
+```ts
+const TodoResponseSchema = z.object({
+  id: z.number().required(),
+  title: z.string().required(),
+  status: z.enum(['completed', 'incompleted'])
+});
+
+type TodoResponse = z.infer<typeof TodoResponseSchema>;
+
+const getTodos = async () => {
+  const response = await axios.get<TodoResponse>('/api/v1/todos');
+  
+  return TodoResponseSchema.parse(response.data);
+}
+```
+しかし、この手法には以下の課題があったのでボツにしました。
+
+- API の仕様変更時に手動での型定義の更新が必要
+- 必須項目の変更時に対応漏れが発生するリスク
+- 型定義とAPI仕様の乖離が生じる可能性
+
+### OpenAPI の採用
+
+上記の課題を解決するため、OpenAPI を採用して型を自動生成する方針に切り替えました。
+
+:::message
+**OpenAPI とは**
+
+OpenAPI は RESTful API の仕様を記述するための標準フォーマットです。
+- YAML または JSON 形式で記述可能
+- Swagger UI などのドキュメント生成ツールと連携可能
+- 型定義の自動生成に活用可能
+:::
+
+例えば、Todo API の仕様は以下のように記述することができます。
+
+```yaml
+openapi: 3.0.1
+info:
+  title: Sample API
+  version: 0.1.0
+
+paths:
+  /todos:
+    get:
+      summary: Todo一覧
+      responses:
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/todo'
+components:
+  schemas:
+    todo:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+            - completed
+            - incomplete
+```
+
+### Stoplight による仕様定義
+
+YAML で書く場合は上記のように記述するのですが、これを手で書いていくのは大変なので、私は
+
+Stoplight という GUI で API を定義して YAML を生成してくれるツールを使ってました。
+
+https://stoplight.io/
+
+最近知ったのですが、 Apidog というツールもあります。
+Apidog は無料プランでも最大4名のメンバーが利用出来るのでお試しで使いやすかもしれません。
+
+https://apidog.com/jp/
+
+### TypeScript の型生成
+
+さて OpenAPI からどうやって TypeScript の型を生成するかですが、 [openapi-typescript](https://github.com/openapi-ts/openapi-typescript) を利用しました。使い方は簡単で↓を実行するだけです。
+
+```
+$ yarn openapi-typescript ./path/to/my/stoplight.yaml -o ./path/to/my/schema.d.ts
+```
+すると、このような型定義が生成されます。
+```ts
+export interface paths {
+  // 省略...
+}
+
+export interface components {
+  schemas: {
+    todo: {
+      id: number,
+      title: string,
+      /** @enum {string} */
+      status: 'completed' | 'incomplete'
+    }
+  }
+}
+```
 
 ## 全体の開発フロー
