@@ -370,7 +370,7 @@ const currentUserDecorator = (Story, context) => {
 }
 ```
 
-## APIレスポンスの型を自動生成する
+## 4. APIレスポンスの型を自動生成する
 
 TypeScript を採用する大きなメリットの一つは、型安全性です。
 せっかく TypeScript を使用しているので API のレスポンスの型が欲しいです。
@@ -451,12 +451,11 @@ components:
 ### Stoplight による仕様定義
 
 YAML で書く場合は上記のように記述するのですが、これを手で書いていくのは大変なので、私は
-
-Stoplight という GUI で API を定義して YAML を生成してくれるツールを使ってました。
+Stoplight という GUI 上で API の仕様を定義できるツールを使用しています。
 
 https://stoplight.io/
 
-最近知ったのですが、 Apidog というツールもあります。
+最近知ったのですが、 Apidog というツールもあるみたいです。
 Apidog は無料プランでも最大4名のメンバーが利用出来るのでお試しで使いやすかもしれません。
 
 https://apidog.com/jp/
@@ -486,4 +485,101 @@ export interface components {
 }
 ```
 
-## 全体の開発フロー
+これにより、手動での型定義が不要になり、型定義と API 仕様が一致することが保証された状態でフロントエンドの開発を進められるようになりました。
+
+
+## 5. 全体の開発フロー
+
+プロジェクト全体の開発フローとして、スキーマ駆動開発を採用しました。
+
+### スキーマ駆動開発とは
+
+スキーマ駆動開発はOpenAPIでAPI仕様を事前に定義し、その仕様に基づいてフロントエンドとバックエンドの開発を進めていく手法です。
+
+フロントエンドでは定義されたレスポンススキーマが返ってくることを想定して開発を進め、
+バックエンドでは仕様どおりのレスポンスを返すAPIを実装していきます。
+
+フロントエンドの開発方針は前章までに解説したとおりですので、ここではRailsでOpenAPIを使用した場合のAPI開発について説明します。
+
+### Rails での OpenAPI 実装
+
+Railsでは [rswag](https://github.com/rswag/rswag?tab=readme-ov-file)  という gem を活用して OpenAPI の仕様を生成・管理します。rswag は request spec を OpenAPI ベースの DSL で拡張し、テストと API ドキュメントの生成を同時に行えます。
+
+:::details rswag のサンプルコード
+```rb
+# spec/requests/todos_spec.rb
+
+require 'swagger_helper'
+
+describe 'Todos API' do
+  path '/todos' do
+    get 'Todo一覧' do
+      tags 'Todo'
+      produces 'application/json'
+			
+      response '200', 'OK' do
+        schema type: :array,
+               items: { '$ref' => '#/components/schemas/todo' }
+
+        run_test!
+      end
+    end
+  end
+end
+
+# spec/swagger_helper.rb
+
+config.openapi_specs = {
+  schemas: {
+    todo: {
+      type: :object,
+      properties: {
+        id: { type: :integer },
+        title: { type: :string },
+        status: {
+          type: :string,
+          enum: %w[completed incomplete]
+        }
+      }
+    }
+  }
+}
+```
+:::
+
+OpenAPI の YAML フォーマットと似た記法で request spec を書くことができ、テストがパスすることを確認した後、`rails rswag:specs:swaggerize` を実行して YAML を生成します。
+生成された YAML は rswag-ui を使用して公開でき、Stoplight で生成した YAML と共に管理できます。
+
+```rb
+Rswag::Ui.configure do |c|
+  c.openapi_endpoint '/api-docs/v1/swagger.yaml', 'API V1 Docs'
+  c.openapi_endpoint '/api-docs/v1/stoplight.yaml', 'API V1 Stoplight Docs'
+end
+```
+
+### スキーマ駆動開発のメリット・デメリット
+
+#### メリット
+
+##### 実装に着手する前に API の仕様をレビューできる
+
+APIインターフェースの設計について早期にレビューすることで、データ構造やリクエストの問題点を事前に発見できます。
+
+##### フロントエンドとバックエンドを並行して開発できる
+
+スキーマを定義した時点でフロントエンドとバックエンドの開発を同時にスタートできるため、開発の待ち時間を最小限に抑えられます。
+これはプロジェクト管理の面でも効果的で、タスクの並行作業が可能になり、作業の振り分けもスムーズになりました。
+
+##### 仕様書と実装の隔離が発生しにくくなる
+
+スキーマを単一の情報源（Single Source of Truth）として扱うことで、API 仕様書が常に最新の状態を保てます。実装とドキュメントが別々に管理される場合によくある仕様と実装の不一致という問題を防げます。
+
+#### デメリット
+
+##### 技術的な学習コスト
+
+Stoplight のようなツールを使用して YAML を作成するとしても、OpenAPI の記法の学習は
+必須なので学習コストは発生します。（ツールの使い方自体はすぐ慣れると思います）
+また、rswag を使うことで request spec の書き方が従来の書き方とは異なるのでそこも慣れが必要になります。
+
+ただし、これらの学習コストを考慮しても、レスポンスが仕様通りであることが担保されているという安心感があるのは価値があると思います。単一の情報源は開発の良き友になってくれると思います。
