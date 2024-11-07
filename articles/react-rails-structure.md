@@ -250,7 +250,7 @@ https://tech.buysell-technologies.com/entry/2024/10/31/100000#Context-API%E3%81%
 - 成功/失敗のステータス
 
 といった非同期の操作に関連して変化する状態も管理する必要があります。
-これらを効率的に管理するため、bulletproof-react でも採用されている Tanstack Query を選択しました。
+これらを効率的に管理するため、bulletproof-react でも採用されている [Tanstack Query](https://tanstack.com/query/latest) を選択しました。
 実装例は以下のようにシンプルです。
 
 ```tsx
