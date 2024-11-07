@@ -6,55 +6,61 @@ topics: ["Rails", "React"]
 published: false
 ---
 
-## はじめに
+## 1. はじめに
 
 この記事は、jQuery で Rails アプリケーションのフロントエンド開発をしてきた私が、
 はじめて React を採用したプロジェクトでの経験をお伝えするものです。技術選定から実際の開発
-まで、一貫して関わる機会を得て、改めて自分の考えを整理する目的に記事にしました。
+まで、一貫して関わる機会を得て、改めて自分の考えを整理する目的で記事にしました。
 
 具体的には以下のような内容について書いたので、興味があれば最後までお付き合いいただけますと幸いです。
 - なぜ React を選んだのか
 - 開発中に直面した課題とその解決方法
 - Rails × React での開発の進め方
 
-## 1. Reactを採用した理由
+## 2. Reactを採用した理由
 
 技術選定にあたり、まず Rails7から標準で組み込まれている Hotwire の採用を検討しました。
-検討の際は下記という記事を参考にしました。
+検討の際はこちらの記事を参考にしました。
 
 https://nekorails.hatenablog.com/entry/2022/05/16/170434
 
-記事中で
+記事の中で
 
 > Hotwireを使う際にはStimulus（というかJS）をできるだけ書かずに、サーバーサイドにロジックを寄せて Turbo で処理するというのもポイントかなと思います。JSを書く量が増えるほどHotwireの良さが消えていき、React + TSを使いたくなります。
 
-こう書かれていますが、まさにこちらの指摘は今回のプロジェクトの要件に関係していました。
-具体的には以下の理由から、Hotwire の採用を見送り、React + TypeScript の採用を検討し始めました。
+このように書かれていますが、まさにこちらの指摘は今回のプロジェクトの要件に関係していました。
+具体的には以下の理由から、Hotwire の採用を見送り、React の採用を検討し始めました。
 
 ### フロントエンドのロジック量
 
-Hotwire は「できるだけ JavaScript を書かずに、サーバーサイドにロジックを寄せる」というアプローチが特徴です。しかし、今回のプロジェクトでは要件定義の段階で JavaScript の記述量が多くなることが分かっていました。このような場合、Hotwire を採用したとして良さを活かすことはできるだろうか？という不安があったので Hotwire は見送ることにしました。また、ちゃんとフロントエンドのロジックのテストも書いていきたいと思ってました。
+Hotwire は「できるだけ JavaScript を書かずに、サーバーサイドにロジックを寄せる」というアプローチが特徴です。しかし、今回のプロジェクトでは要件定義の段階で JavaScript の記述量が多くなることが分かっていました。このような場合、Hotwire を採用したとして良さを活かすことはできるだろうか？という不安があったので Hotwire は見送ることにしました。
 
 ### UI の管理のしやすさ
 
-また、以下のような課題もありました。
-- ユーザーの権限によって操作できるオブジェクトが変わる
-- 各状態ごとの UI の把握が困難
+プロジェクトには以下のような課題がありました。
 
-Rails で動作検証をする場合、実際にデータを作成して、ログインユーザーを切り替えながら検証することになると思いますが、このやり方は以前から効率が悪いと思ってました。そこで [Storybook](https://storybook.js.org/) を使用して UI のテストのやりやすさを向上できないかと考えました。
+- ユーザーの権限によって操作できるオブジェクトが変わる
+- データの状態の種類が多く、各状態ごとのUIの把握が困難だった
+
+Railsで動作検証をする場合、実際にデータを作成し、ログインユーザーを切り替えながら検証する必要があります。このやり方は以前から効率が悪いと感じていたため、[Storybook](https://storybook.js.org) を使用してUIのテスト効率を向上できないか検討しました。
 
 :::message
 **Storybook とは**
 
-UI コンポーネントを独立して開発、テスト、文書化するためのオープンソースのツールです。Storybook では、各 UI コンポーネントの「ストーリー」を作成することができ、Story は特定の状態やプロパティを持つコンポーネントの例を示します。これにより、開発者は異なるバリエーションを簡単に確認できます。
+UI コンポーネントを独立して開発、テスト、文書化するためのオープンソースのツールです。Storybook では、各 UI コンポーネントの「ストーリー」を作成することができます。ストーリーは特定の状態やプロパティを持つコンポーネントの例を示します。これにより、開発者は異なるバリエーションを簡単に確認できます。
 :::
 
-React と Storybook を組み合わせることで以下のメリットがあると考えました。
+Storybook を採用すれば、各状態ごとの UI のカタログを作成し、ログインユーザーの切り替えなしで動作検証が可能になると考えました。さらに、アプリケーション全体から切り離してUIの開発ができる点も魅力的でした。このように、React単体の機能だけでなく、周辺ツールの充実した環境も採用の大きなモチベーションとなりました。
 
-- データの状態ごとに Story を作成して UI を管理できる
-- Story 上でユーザーの権限を切り替えて UI のテストができる
+### 結論
 
-## 2. Reactを使えるようにする方法
+最終的に、以下の理由から React + TypeScript の採用を決定しました。
+
+1. フロントエンドでの複雑なロジック処理に適している
+2. 型安全性による開発の安全性向上
+3. Storybook との組み合わせによる UI 管理の効率化
+
+## 3. Reactを使えるようにする方法
 
 Rails アプリケーションで React を使用する方法を検討する際、[mastodon](https://github.com/mastodon/mastodon) の実装を参考にしました。mastodon では、バックエンド（Rails）とフロントエンド（React）を完全に分離せず、うまく共存させています。
 
@@ -69,7 +75,7 @@ mastodon では React と haml が混在する構成を採用しており、以�
 このアプローチは以下のメリットがあります。
 
 - バックエンドとフロントエンドを分離せずに開発可能
-- 既存の Rails の資産（ルーティング、認証、認可）をそのまま活用可能
+- 既存の Rails の資産（ルーティング、認証）をそのまま活用可能
 - 必要な箇所だけを React で実装可能
 
 ### 実装手順
@@ -108,7 +114,7 @@ const App = () => {
 };
 ```
 
-これだけで React コンポーネントが画面に表示されるようになります。
+これで画面には「Hello, World!」と表示されます。
 
 この方法で React の導入自体は完了しましたが、実際の開発を進めていくうえでは以下のような課題に直面しました。
 
@@ -118,11 +124,11 @@ const App = () => {
 
 これらの課題については、次の章で詳しく説明していきます。
 
-## 3. フロントエンド開発の課題
+## 4. フロントエンド開発の課題
 
 ### フォルダ設計
 
-一番悩んだところです。
+一番悩んだところです。(今も悩んでいますが笑)
 
 #### ベースとなる構成
 
@@ -167,7 +173,7 @@ https://zenn.dev/pandanoir/articles/d74d317f2b3caf
 ##### pages
 
 `pages` フォルダには `#root` DOM 配下に追加される最上位のコンポーネントを配置しました。
-ページコンポーネントは `features` と `components` のファイルで構成され、各ページコンポーネントは必ず Storybook のストーリーを持ちます。
+ページコンポーネントは `features` と `components` のファイルで構成され、ページコンポーネントに関しては必ず Story を実装するようにしました。
 
 ##### features
 
@@ -203,7 +209,7 @@ export type Todo = components['schemas']['todo'];
 
 ### 状態管理
 
-React の状態管理には Redux, Jotai, Zustand...など多くの選択肢があり、どれを採用すれば良いのかかなり悩みました。そんな中、下記の記事を見つけたのですが、React で扱う状態は以下の3種類に分類できる、という考え方に影響を受けました。
+React の状態管理には Redux, Jotai, Zustand...など多くの選択肢があり、どれを採用すれば良いのかかなり悩みました。そんな中、こちらの記事を見つけたのですが、React で扱う状態は以下の3種類に分類できる、という考え方に影響を受けました。
 
 https://zenn.dev/knowledgework/articles/607ec0c9b0408d
 
@@ -211,7 +217,7 @@ https://zenn.dev/knowledgework/articles/607ec0c9b0408d
 2. Global State（アプリケーション全体で共有する状態）
 3. Server State（サーバーから取得するデータの状態）
 
-この分類に基づいて、今回のプロジェクトに最適な状態管理の方法を考えました。
+この分類に基づいて、今回のプロジェクトに最適な状態管理の方法を考えることにしました。
 
 #### 1. Local State
 
@@ -238,7 +244,7 @@ https://tech.buysell-technologies.com/entry/2024/10/31/100000#Context-API%E3%81%
 
 #### 3. Server State
 
-サーバーデータの管理にはデータ以外にも
+サーバーデータの管理はデータ以外にも
 - データのキャッシュ
 - ローディング状態
 - 成功/失敗のステータス
@@ -266,20 +272,21 @@ Tanstack Query 公式からもリンクされている [TkDodo's blog](https://t
 
 ### 開発の進め方
 
-フォルダの構造も決まって、使用するライブラリも程度決めることができました。そこで次に「どうやって UI を効率よく開発していくか」ということを考えることにしました。
+フォルダの構造も決まって、使用するライブラリもある程度決めることができました。そこで次に「どうやって UI を効率よく開発していくか」ということを考えることにしました。
 
 今回のプロジェクトで目標としたことは下記の３点です。
 
-1. API の開発を待たずにフロントエンド開発を進められる体制作り
+1. API の開発を待たずにフロントエンド開発を進められる体制を作る
 2. バックエンドから受け取る多様なデータ状態の網羅的なテスト
 3. ユーザー権限に応じた UI 変更（操作可否など）の効率的なテスト
 
-これらの課題に対して、Storybook と [MSW（Mock Service Worker）](https://mswjs.io/)を組み合わせたアプローチを採用しました。
+これらの課題に対して、Storybook と [MSW（Mock Service Worker）](https://mswjs.io/)を組み合わせて対応しました。
 
 #### 1. APIモックによる開発の並行化
 
 MSW は API リクエストをインターセプトすることで、リクエストに対してモックされたレスポンスで応答できるので、実際の API の完成を待たずに開発を進めることができます。具体的には下記のようなハンドラーを実装していくことになります。
 
+:::details handler.ts
 ```typescript
 import { http, HttpResponse } from 'msw'
 
@@ -299,15 +306,17 @@ export const todoHandlers = () => [
   })
 ];
 ```
+:::
 
 Storybook で MSW を使用するには [msw-storybook-addon](https://storybook.js.org/addons/msw-storybook-addon) というアドオンを追加する必要があります。
 
 #### 2. 多様なデータ状態のテスト
 
-各状態の Story を定義することで、さまざまなデータ状態を一覧で確認できるようにしました。
+各状態の Story を定義することで、さまざまな状態の UI を一覧で確認できるようにしました。
 新しく入ったメンバーが一々自分でデータの準備をすることなく、UI を閲覧できるように
 しておきたかったというのもあります。
 
+:::details todo.stories.tsx
 ```ts
 export default {
   title: 'Pages/Todo',
@@ -327,10 +336,11 @@ export const Incomplete = {
   name: '未完了'
 }
 ```
+:::
 
 #### 3. ユーザー権限に応じたUI変更のテスト
 
-Storybook の ArgTypes と Decorators を組み合わせて、ユーザー権限の動的な切り替えを実現しました。
+Storybook の [ArgTypes](https://storybook.js.org/docs/api/arg-types) と [Decorators](https://storybook.js.org/docs/writing-stories/decorators) を組み合わせて、ユーザー権限の動的な切り替えを実現しました。
 
 ```tsx
 export default {
@@ -350,10 +360,9 @@ export default {
 Storybook は Decorators を使用して Story をラップできるので、 ArgTypes で選択した値に応じたユーザーのオブジェクトを Context に渡す Decorator を自作しました。
 
 ```tsx
-const currentUserDecorator = (Story, context) => {
+const withCurrentUser = (Story, context) => {
   const role = context.args.role; // ArgTypesで選択した値はcontextから取得できる
   let currentUser;
-	
   if (role === '一般') {
     currentUser = generalUser;
   } else {
@@ -368,7 +377,7 @@ const currentUserDecorator = (Story, context) => {
 }
 ```
 
-## 4. APIレスポンスの型を自動生成する
+## 5. APIレスポンスの型を自動生成する
 
 TypeScript を採用する大きなメリットの1つは、型安全性です。
 せっかく TypeScript を使用しているので API のレスポンスの型が欲しいです。
@@ -378,18 +387,18 @@ TypeScript を採用する大きなメリットの1つは、型安全性です�
 最初は zod を使用して型を手動で定義し、ランタイムでの型検証を行なうことを検討しました。
 
 ```ts
-const TodoResponseSchema = z.object({
-  id: z.number().required(),
-  title: z.string().required(),
-  status: z.enum(['completed', 'incompleted'])
+const TodoResponse = z.object({
+  id: z.number(),
+  title: z.string(),
+  status: z.enum(['completed', 'incomplete'])
 });
 
-type TodoResponse = z.infer<typeof TodoResponseSchema>;
+type TodoResponse = z.infer<typeof TodoResponse>;
 
 const getTodos = async () => {
   const response = await axios.get<TodoResponse>('/api/v1/todos');
   
-  return TodoResponseSchema.parse(response.data);
+  return TodoResponse.parse(response.data);
 }
 ```
 しかし、この手法には以下の課題があったのでボツにしました。
@@ -413,6 +422,7 @@ OpenAPI は RESTful API の仕様を記述するための標準フォーマッ�
 
 例えば、Todo API の仕様は以下のように記述できます。
 
+:::details swagger.yaml
 ```yaml
 openapi: 3.0.1
 info:
@@ -445,6 +455,7 @@ components:
             - completed
             - incomplete
 ```
+:::
 
 ### Stoplight による仕様定義
 
@@ -486,7 +497,7 @@ export interface components {
 これにより、手動での型定義が不要になり、型定義と API 仕様が一致することが保証された状態でフロントエンドの開発を進められるようになりました。
 
 
-## 5. 全体の開発フロー
+## 6. 全体の開発フロー
 
 プロジェクト全体の開発フローとして、スキーマ駆動開発を採用しました。
 
@@ -555,6 +566,18 @@ Rswag::Ui.configure do |c|
 end
 ```
 
+これで仕様書と実装が一致しているか目視で確認出来ますが、 レスポンスが OpenAPI で定義した仕様通りになっているかテストで保証したいです。
+
+これは [committee-rails](https://github.com/willnet/committee-rails) で解決出来ます。インストール後、 `assert_request_schema_confirm` 、`assert_response_schema_confirm` が使えるようになるので、上記の request spec に`assert_response_schema_confirm` を追記するだけでレスポンススキーマを検証できるようになります。
+
+```ruby
+run_test! do
+  assert_response_schema_confirm(200)
+end
+```
+
+実際に仕様書とは異なるレスポンスを返すように変更して、テストを実行すればテストが落ちることが確認出できると思います。
+
 ### スキーマ駆動開発のメリット・デメリット
 
 #### メリット
@@ -580,9 +603,9 @@ Stoplight のようなツールを使用して YAML を作成するとしても�
 必須なので学習コストは発生します。（ツールの使い方自体はすぐ慣れると思います）
 また、rswag を使うことで request spec の書き方が従来の書き方とは異なるのでそこも慣れが必要になります。
 
-ただし、これらの学習コストを考慮しても、レスポンスが仕様通りであることが担保されているという安心感があるのは価値があると思います。単一の情報源は開発の良き友になってくれると思います。
+ただし、これらの学習コストを考慮しても、レスポンスが仕様通りであることが担保されているという安心感があるのは価値があると思います。
 
-## さいごに
+## 7. さいごに
 
 React 単体だけでなく、コンポーネントを独立して開発するための Storybook や、スキーマ駆動のための OpenAPI などのツールを組み合わせて開発を進めることになり、新しく技術をキャッチアップする苦労はありましたが、より良い開発体験を得ることができました。
 
