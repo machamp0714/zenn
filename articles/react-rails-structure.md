@@ -3,7 +3,7 @@ title: "jQueryしか使ったことがないRailsエンジニアがReactを採�
 emoji: "🐳"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Rails", "React"]
-published: false
+published: true
 ---
 
 ## 1. はじめに
@@ -24,7 +24,7 @@ published: false
 
 https://nekorails.hatenablog.com/entry/2022/05/16/170434
 
-記事の中で
+記事のなかで
 
 > Hotwireを使う際にはStimulus（というかJS）をできるだけ書かずに、サーバーサイドにロジックを寄せて Turbo で処理するというのもポイントかなと思います。JSを書く量が増えるほどHotwireの良さが消えていき、React + TSを使いたくなります。
 
@@ -33,24 +33,24 @@ https://nekorails.hatenablog.com/entry/2022/05/16/170434
 
 ### フロントエンドのロジック量
 
-Hotwire は「できるだけ JavaScript を書かずに、サーバーサイドにロジックを寄せる」というアプローチが特徴です。しかし、今回のプロジェクトでは要件定義の段階で JavaScript の記述量が多くなることが分かっていました。このような場合、Hotwire を採用したとして良さを活かすことはできるだろうか？という不安があったので Hotwire は見送ることにしました。
+Hotwire は「できるだけ JavaScript を書かずに、サーバーサイドにロジックを寄せる」というアプローチが特徴です。しかし、今回のプロジェクトでは要件定義の段階で JavaScript の記述量が多くなることがわかっていました。このような場合、Hotwire を採用したとして良さを活かすことはできるだろうか？という不安があったので Hotwire は見送ることにしました。
 
 ### UI の管理のしやすさ
 
 プロジェクトには以下のような課題がありました。
 
 - ユーザーの権限によって操作できるオブジェクトが変わる
-- データの状態の種類が多く、各状態ごとのUIの把握が困難だった
+- データの状態の種類が多く、各状態ごとの UI の把握が困難だった
 
-Railsで動作検証をする場合、実際にデータを作成し、ログインユーザーを切り替えながら検証する必要があります。このやり方は以前から効率が悪いと感じていたため、[Storybook](https://storybook.js.org) を使用してUIのテスト効率を向上できないか検討しました。
+Rails で動作検証をする場合、実際にデータを作成し、ログインユーザーを切り替えながら検証する必要があります。このやり方は以前から効率が悪いと感じていたため、UI のテスト効率を向上するために [Storybook](https://storybook.js.org) が利用できないか検討しました。
 
 :::message
 **Storybook とは**
 
-UI コンポーネントを独立して開発、テスト、文書化するためのオープンソースのツールです。Storybook では、各 UI コンポーネントの「ストーリー」を作成することができます。ストーリーは特定の状態やプロパティを持つコンポーネントの例を示します。これにより、開発者は異なるバリエーションを簡単に確認できます。
+UI コンポーネントを独立して開発、テスト、文書化するためのオープンソースのツールです。Storybook では、各 UI コンポーネントの「ストーリー」を作成できます。ストーリーは特定の状態やプロパティを持つコンポーネントの例を示します。これにより、開発者は異なるバリエーションを簡単に確認できます。
 :::
 
-Storybook を採用すれば、各状態ごとの UI のカタログを作成し、ログインユーザーの切り替えなしで動作検証が可能になると考えました。さらに、アプリケーション全体から切り離してUIの開発ができる点も魅力的でした。このように、React単体の機能だけでなく、周辺ツールの充実した環境も採用の大きなモチベーションとなりました。
+Storybook を利用すれば、各状態ごとの UI の一覧を作成し、ログインユーザーの切り替えなしで動作検証が可能になると考えました。さらに、アプリケーション全体から切り離して UI の開発ができる点も魅力的でした。このように、React 単体の機能だけでなく、周辺ツールの充実した環境も React 採用の大きなモチベーションとなりました。
 
 ### 結論
 
@@ -223,7 +223,7 @@ https://zenn.dev/knowledgework/articles/607ec0c9b0408d
 
 コンポーネント単位の状態管理には、普通に React の `useState` を使用しています。
 
-- モーダルの Open/Close
+- 画面の Open/Close
 
 
 #### 2. Global State
@@ -239,8 +239,7 @@ https://zenn.dev/knowledgework/articles/607ec0c9b0408d
 - `Context API` で十分カバーできる規模感
 - [React-Toastify](https://fkhadra.github.io/react-toastify/introduction/) のようなライブラリの活用
 
-学習コストも抑えることができて個人的には良い選択だったと思います。また、状態管理ライブラリの選定に関してはこちらの記事も参考になるかと思います。
-https://tech.buysell-technologies.com/entry/2024/10/31/100000#Context-API%E3%81%AE%E6%80%9D%E6%83%B3%E3%81%A8%E3%81%AE%E3%82%BA%E3%83%AC
+学習コストも抑えることができて個人的には良い選択だったと思います。****
 
 #### 3. Server State
 
@@ -280,7 +279,7 @@ Tanstack Query 公式からもリンクされている [TkDodo's blog](https://t
 2. バックエンドから受け取る多様なデータ状態の網羅的なテスト
 3. ユーザー権限に応じた UI 変更（操作可否など）の効率的なテスト
 
-これらの課題に対して、Storybook と [MSW（Mock Service Worker）](https://mswjs.io/)を組み合わせて対応しました。
+これらの課題に対しては、Storybook と [MSW（Mock Service Worker）](https://mswjs.io/)を組み合わせて対応することにしました。
 
 #### 1. APIモックによる開発の並行化
 
@@ -512,7 +511,7 @@ export interface components {
 
 ### Rails での OpenAPI 実装
 
-Rails では [rswag](https://github.com/rswag/rswag?tab=readme-ov-file)  という gem を活用して OpenAPI の仕様を生成・管理します。rswag は request spec を OpenAPI ベースの DSL で拡張し、テストと API ドキュメントの生成を同時に行なえます。
+Rails では [rswag](https://github.com/rswag/rswag?tab=readme-ov-file)  という gem を活用して OpenAPI の仕様を生成・管理します。rswag は request spec を OpenAPI ベースの DSL で拡張し、テストと API ドキュメントの生成を同時に行なえます。このように OpenAPI のフォーマットと似た記法で request spec を書くことができます。
 
 :::details rswag のサンプルコード
 ```rb
@@ -556,8 +555,7 @@ config.openapi_specs = {
 ```
 :::
 
-OpenAPI の YAML フォーマットと似た記法で request spec を書くことができ、テストがパスすることを確認した後、`rails rswag:specs:swaggerize` を実行して YAML を生成します。
-生成された YAML は rswag-ui を使用して公開でき、Stoplight で生成した YAML とともに管理できます。
+テストがパスすることを確認した後、`rails rswag:specs:swaggerize` を実行して YAML を生成し、`rswag-ui` を使用して公開します。さらに `rswag-ui` は Stoplight で生成した YAML も公開できます。
 
 ```rb
 Rswag::Ui.configure do |c|
@@ -566,9 +564,9 @@ Rswag::Ui.configure do |c|
 end
 ```
 
-これで仕様書と実装が一致しているか目視で確認出来ますが、 レスポンスが OpenAPI で定義した仕様通りになっているかテストで保証したいです。
+次に API レスポンスが OpenAPI で定義した仕様通りになっているかテストで保証できるようにします。
 
-これは [committee-rails](https://github.com/willnet/committee-rails) で解決出来ます。インストール後、 `assert_request_schema_confirm` 、`assert_response_schema_confirm` が使えるようになるので、上記の request spec に`assert_response_schema_confirm` を追記するだけでレスポンススキーマを検証できるようになります。
+これには [committee-rails](https://github.com/willnet/committee-rails) という gem を使用しました。インストール後、 `assert_request_schema_confirm` 、`assert_response_schema_confirm` が使えるようになるので、上記の request spec に`assert_response_schema_confirm` を追記するだけでレスポンススキーマを検証できるようになります。
 
 ```ruby
 run_test! do
