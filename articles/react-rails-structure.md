@@ -239,7 +239,7 @@ https://zenn.dev/knowledgework/articles/607ec0c9b0408d
 - `Context API` で十分カバーできる規模感
 - [React-Toastify](https://fkhadra.github.io/react-toastify/introduction/) のようなライブラリの活用
 
-学習コストも抑えることができて個人的には良い選択だったと思います。****
+学習コストも抑えることができて個人的には良い選択だったと思います。
 
 #### 3. Server State
 
