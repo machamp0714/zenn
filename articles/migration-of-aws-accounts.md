@@ -3,7 +3,7 @@ title: "AWSアカウントを移行する際にやったことまとめ"
 emoji: "🐳"
 type: "tech"
 topics: ["AWS", "terraform"]
-published: false
+published: true
 ---
 
 この記事は、[エンジニアと人生 Advent Calendar 2024](https://adventar.org/calendars/10296) の Day6 の記事です！
