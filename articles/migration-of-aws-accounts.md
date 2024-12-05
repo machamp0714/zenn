@@ -8,7 +8,7 @@ published: false
 
 ## 1. はじめに
 
-最近アサインされたプロジェクトで、AWS アカウントの廃止が決定し、新しいアカウントへの移行を進めることになりました。旧アカウントの現状を詳しく確認していくと、リソースの管理において以下のような問題を抱えていることが分かりました。
+最近アサインされたプロジェクトで、AWS アカウントの廃止が決定し、新しいアカウントへの移行を進めることになりました。旧アカウントの現状を詳しく確認していくと、リソースの管理において以下のような問題を抱えていることがわかりました。
 
 - リソースの作成者や作成時期、作成意図が不明確な状態となっていた
 - サーバーがパブリックサブネット上に配置されており、セキュリティリスクが存在していた
@@ -24,7 +24,7 @@ published: false
 組織内のアカウントは「管理アカウント」と「メンバーアカウント」の2種類に分別され、「管理アカウント」とは、 Organization を作成するためのアカウントのことで、それ以外を「メンバーアカウント」と呼びます。管理アカウントは、メンバーアカウントで発生した料金を支払う責任を持ちます。
 
 :::message alert
-管理アカウントを変更することはできないので注意が必要です。
+管理アカウントを変更できないので注意が必要です。
 
 さらに、管理アカウント内でのリソース作成は避けるべきです。これは、サービス制御ポリシー（SCP）が管理アカウント内のリソースには適用されないためです。
 :::
@@ -37,13 +37,13 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-arch
 
 ### IAM リソースの棚卸し
 
-既存環境では、各アカウントに `UserA` や `UserB` といった個別の IAM ユーザーが存在していました。この状況を改善するため、[IAM Identity Center](https://docs.aws.amazon.com/ja_jp/singlesignon/latest/userguide/what-is.html) を導入しました。IAM Identity Center を利用すると Okta や Google Workspace の認証情報を利用して複数の AWS アカウントにアクセス出来るようになり、各アカウントで IAM ユーザーを作成する必要がなくなります。
+既存環境では、各アカウントに `UserA` や `UserB` といった個別の IAM ユーザーが存在していました。この状況を改善するため、[IAM Identity Center](https://docs.aws.amazon.com/ja_jp/singlesignon/latest/userguide/what-is.html) を導入しました。IAM Identity Center を利用すると Okta や Google Workspace の認証情報を利用して複数の AWS アカウントにアクセスできるようになり、各アカウントで IAM ユーザーを作成する必要がなくなります。
 
-また、GitHub Actions などの CI 上で使用されていたデプロイ用の IAM ユーザーについても見直しを行いました。具体的にはアクセスキーを使用した認証から IAM OpenID Connect を利用した認証方式に切り替えました。
+また、GitHub Actions などの CI 上で使用されていたデプロイ用の IAM ユーザーについても見直しを行ないました。具体的にはアクセスキーを使用した認証から IAM OpenID Connect を利用した認証方式に切り替えました。
 
 1. GitHub Actions ワークフローは GitHub OIDC プロバイダから一時的な JWT を取得
 2. `sts:AssumeRoleWithWebIdentity` と JWT を利用して一時的な認証情報を取得する
-3. (2)で取得した認証情報で AWS リソースにアクセス出来るようになる
+3. (2)で取得した認証情報で AWS リソースにアクセスできるようになる
 
 という流れになります。
 
@@ -100,7 +100,7 @@ data "aws_iam_policy_document" "this" {
 
 ## 3. IaC の導入
 
-今までの運用は「誰がいつどのような変更を加えたのか分からない」、という課題があったので、
+今までの運用は「誰がいつどのような変更を加えたのかわからない」、という課題があったので、
 新アカウントでは Chatbot のような一部のリソースを除いてコード化に取り組んでいます。
 
 ### ステートファイルの分離
@@ -154,15 +154,15 @@ data "aws_iam_policy_document" "this" {
 
 - tfstate のサイズが小さくなるのでデプロイの時間が短縮される
 - コンポーネントの責務が明確になるので、コードの見通しが良くなる
-- 一つのステートファイルの破損が他に影響しないので安全性が向上する
+- 1つのステートファイルの破損が他に影響しないので安全性が向上する
 
 一方で、デメリットも存在します。
 
 #### 設定ファイルを DRY にする工夫が必要になる
 
- [Terragrunt](https://terragrunt.gruntwork.io/) という Terraform のラッパーツールを活用するとバックエンドや `provider`  の設定ファイルを DRY にすることができます。
+ [Terragrunt](https://terragrunt.gruntwork.io/) という Terraform のラッパーツールを活用するとバックエンドや `provider`  の設定ファイルを DRY にできます。
  
- terragrunt の`generate` ブロックを利用すると `terragrunt` の working directory にファイルを生成することができるので、これを利用して provider と backend の設定ファイルを DRY にすることができます。
+ terragrunt の`generate` ブロックを利用すると `terragrunt` の working directory にファイルを生成できるので、これを利用して provider と backend の設定ファイルを DRY にできます。
 
 :::details generate ブロック
 ```hcl
@@ -205,9 +205,9 @@ generate "provider" {
 :::
 
 
-#### `terraform apply` のワンコマンドでデプロイ出来ない
+#### `terraform apply` のワンコマンドでデプロイできない
 
-インフラをコンポーネント単位で分けている都合上、`apply` を一度に実行することが出来ません。コンポーネントA->コンポーネントB->コンポーネントC...といったように順番に `apply` していく必要がありますが、`terragrunt` には [run-all](https://terragrunt.gruntwork.io/docs/reference/cli-options/#run-all) という再起的に `terraform` コマンドを実行してくれるオプションがあります。 また、`terragrunt` の `dependencies` ブロックを利用して `apply` の実行順を制御することが出来ます。
+インフラをコンポーネント単位で分けている都合上、`apply` を一度に実行できません。コンポーネント A->コンポーネント B->コンポーネント C...といったように順番に `apply` していく必要がありますが、`terragrunt` には [run-all](https://terragrunt.gruntwork.io/docs/reference/cli-options/#run-all) という再起的に `terraform` コマンドを実行してくれるオプションがあります。 また、`terragrunt` の `dependencies` ブロックを利用して `apply` の実行順を制御できます。
 
 ```hcl
 include "root" {
@@ -245,7 +245,7 @@ Group 2
 - Module /app/environments/production/storage/rds-mysql
 ```
 
-さらに `dependency` ブロックを利用して別コンポーネントの `outputs` を参照することも出来ます。`outputs` がまだデプロイされていない場合は、`mock_outputs` を設定することでコンポーネントをテストすることが出来ます。
+さらに `dependency` ブロックを利用して別コンポーネントの `outputs` を参照できます。`outputs` がまだデプロイされていない場合は、`mock_outputs` を設定することでコンポーネントをテストできます。
 
 ### Terraform Workspace を使わなかった理由
 
@@ -334,7 +334,7 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
 
 AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエストを送る場合…
 
-1. DNS 解決が行われる。DNS クエリの結果としてエンドポイントネットワークインターフェース(ENI)のプライベート IP が返される
+1. DNS 解決が行なわれる。DNS クエリの結果としてエンドポイントネットワークインターフェース(ENI)のプライベート IP が返される
 2. 解決されたプライベート IP にリクエストが送られる
 3. ENI から AWS サービスにトラフィックが転送される
 
@@ -348,9 +348,9 @@ AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエス�
 2. スナップショットをコピーするときに暗号化を有効にする
 3. スナップショットを復元
 
-という流れで行けるのですが、移行元アカウントで AWS マネージドキーの KMS で暗号化したスナップショットを移行先アカウントに移行しても、復元することができませんでした。というのも AWS マネージドキーは AWS アカウントの同リージョン内でのみ使用可能なようです。
+という流れで行けるのですが、移行元アカウントで AWS マネージドキーの KMS で暗号化したスナップショットを移行先アカウントに移行しても、復元できませんでした。というのも AWS マネージドキーは AWS アカウントの同リージョン内でのみ使用可能なようです。
 
-カスタマーKMS はキーポリシーを修正することで他アカウントに共有することが出来るので、今回は移行先アカウントに KMS を作成し、移行元アカウントの IAM ユーザーに共有し、暗号化する際にこの KMS を指定することで対応しました。他のアカウントに共有するためのキーポリシーはこちらです。
+カスタマーKMS はキーポリシーを修正することで他アカウントに共有できるので、今回は移行先アカウントに KMS を作成し、移行元アカウントの IAM ユーザーに共有し、暗号化する際にこの KMS を指定することで対応しました。他のアカウントに共有するためのキーポリシーはこちらです。
 
 :::details キーポリシー
 ```json
@@ -453,7 +453,7 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
 
 #### 3. 移行先のアカウントで S3 バケットの ACL を無効にする
 
-バケットを選択して「アクセス許可」タブを選択し、「オブジェクト所有者」から「ACL無効(推奨)」を選択します。
+バケットを選択して「アクセス許可」タブを選択し、「オブジェクト所有者」から「ACL 無効(推奨)」を選択します。
 
 #### 4. 移行先アカウントで S3 バケットポリシーを更新する
 
@@ -531,7 +531,7 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
 
 #### 5. 移行元アカウントで、DataSync ロケーションを作成する
 
-移行先アカウントが別アカウントの場合は、コンソールからロケーションを作成することが出来ないので、 AWS Cloud Shell から CLI を利用して作成することになります。
+移行先アカウントが別アカウントの場合は、コンソールからロケーションを作成できないので、 AWS Cloud Shell から CLI を利用して作成することになります。
 
 ```sh
 aws datasync create-location-s3 \
