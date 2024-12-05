@@ -8,17 +8,16 @@ published: false
 
 ## 1. はじめに
 
-最近アサインされたプロジェクトで、理由は記載できませんが、 AWS アカウントの廃止が決定し、新しいアカウントへの移行を進めることになりました。旧アカウントの現状を詳しく確認していくと、リソースの管理において以下のような問題を抱えていることが分かりました。
+最近アサインされたプロジェクトで、AWS アカウントの廃止が決定し、新しいアカウントへの移行を進めることになりました。旧アカウントの現状を詳しく確認していくと、リソースの管理において以下のような問題を抱えていることが分かりました。
 
-- リソースの作成者や作成時期、作成意図が不明確な状態となっていました
-- リソースの命名規則に一貫性がなく、管理が困難な状況でした
-- サーバーがパブリックサブネット上に配置されており、セキュリティリスクが存在していました
-- データベースなどの重要なリソースが暗号化されていない状態でした
-- IAM が複数のアカウントに分散して存在しており、権限管理の透明性が損なわれていました
+- リソースの作成者や作成時期、作成意図が不明確な状態となっていた
+- サーバーがパブリックサブネット上に配置されており、セキュリティリスクが存在していた
+- DB などの重要なリソースが暗号化されていない状態でした
+- IAM ユーザーが複数のアカウントに分散していた
 
 本記事では、これらの課題を解決しながら、新環境への移行作業で実施した内容について詳しく説明していきます。既存環境の問題点を改善しつつ、より安全で管理しやすい AWS 環境を構築するための取り組みをまとめています。
 
-## 2. AWS Oraganizations の導入
+## 2. AWS Organizations の導入
 
 スタンドアロンなアカウントが複数存在していたので、移行にあたり、まず AWS Organizations を導入するところから着手しました。AWS Organizations は、複数の AWS アカウントを一元管理するためのサービスです。
 
@@ -38,9 +37,9 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-arch
 
 ### IAM リソースの棚卸し
 
-既存環境では、各アカウントに `userA` や `userB` といった個別の IAM ユーザーが存在していました。この状況を改善するため、[IAM Identity Center](https://docs.aws.amazon.com/ja_jp/singlesignon/latest/userguide/what-is.html) を導入しました。IAM Identity Center を利用すると Okta や Google Workspace の認証情報を利用して複数の AWS アカウントにアクセス出来るようになり、各アカウントで IAM を発行する必要がなくなります。
+既存環境では、各アカウントに `UserA` や `UserB` といった個別の IAM ユーザーが存在していました。この状況を改善するため、[IAM Identity Center](https://docs.aws.amazon.com/ja_jp/singlesignon/latest/userguide/what-is.html) を導入しました。IAM Identity Center を利用すると Okta や Google Workspace の認証情報を利用して複数の AWS アカウントにアクセス出来るようになり、各アカウントで IAM ユーザーを作成する必要がなくなります。
 
-また、GitHub Actions で使用されていた デプロイ用の IAM ユーザーについても見直しを行いました。具体的にはアクセスキーを使用した認証から IAM OpenID Connect を利用した認証方式に切り替えました。
+また、GitHub Actions などの CI 上で使用されていたデプロイ用の IAM ユーザーについても見直しを行いました。具体的にはアクセスキーを使用した認証から IAM OpenID Connect を利用した認証方式に切り替えました。
 
 1. GitHub Actions ワークフローは GitHub OIDC プロバイダから一時的な JWT を取得
 2. `sts:AssumeRoleWithWebIdentity` と JWT を利用して一時的な認証情報を取得する
@@ -49,95 +48,60 @@ https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-arch
 という流れになります。
 
 これでアクセスキーを長期間、GitHub のシークレットに保存する必要がなくなりました。 
-
 Terraform のコードも載せておきます。
 
 :::details OIDC プロバイダ
 
-```
+```hcl
 data "tls_certificate" "this" {
-  url = format("https://%s", each.value.hostname)
+  url = format("https://token.actions.githubusercontent.com")
 }
 
 resource "aws_iam_openid_connect_provider" "this" {
-  url             = data.tls_certificate.this[each.key].url
-  client_id_list  = [each.value.audience]
-  thumbprint_list = [data.tls_certificate.this[each.key].certificates[0].sha1_fingerprint]
+  url             = data.tls_certificate.this.url
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.this.certificates[0].sha1_fingerprint]
 }
 
 resource "aws_iam_role" "this" {
-  name = each.value.role_name
-  assume_role_policy = data.aws_iam_policy_document.this[each.key].json
+  name = "GithubActionsRole"
+  assume_role_policy = data.aws_iam_policy_document.this.json
 }
 
 resource "aws_iam_role_policy_attachment" "this" {
-  for_each = var.oidc_providers
-
-  role       = aws_iam_role.this[each.key].name
+  role       = aws_iam_role.this.name
   policy_arn = each.value.policy_arn
 }
 
 data "aws_iam_policy_document" "this" {
-  for_each = var.oidc_providers
-
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.this[each.key].arn]
+      identifiers = [aws_iam_openid_connect_provider.this.arn]
     }
 
-    dynamic "condition" {
-      for_each = each.key == "terraform_cloud" ? [1] : []
-
-      content {
-        test     = "StringEquals"
-        variable = "${each.value.hostname}:aud"
-        values   = [each.value.audience]
-      }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
     }
 
-    dynamic "condition" {
-      for_each = each.key == "terraform_cloud" ? [1] : []
-
-      content {
-        test     = "StringLike"
-        variable = "${each.value.hostname}:sub"
-        values   = ["organization:${each.value.organization_id}:project:*:workspace:*:run_phase:*"]
-      }
-    }
-
-    dynamic "condition" {
-      for_each = each.key == "github_actions" ? [1] : []
-
-      content {
-        test     = "StringEquals"
-        variable = "${each.value.hostname}:aud"
-        values   = ["sts.amazonaws.com"]
-      }
-    }
-
-    dynamic "condition" {
-      for_each = each.key == "github_actions" ? [1] : []
-
-      content {
-        test     = "StringLike"
-        variable = "${each.value.hostname}:sub"
-        values   = ["repo:timecrowdinc/timecrowd-enterprise:*"]
-      }
+    condition {
+      test     = "StringLike"
+        variable = "token.actions.githubusercontent.com:sub"
+        values   = ["repo:<organization>/<repository>:*"]
     }
   }
 }
 ```
-
 :::
 
-# IaC の実践
+## 3. IaC の導入
 
-今までの運用は誰がいつどのような変更を加えたのか分からない、という問題があったので、
-
-新アカウントでは Chatbot のようなリソースを除いてコード化に取り組んでいます。
+今までの運用は「誰がいつどのような変更を加えたのか分からない」、という課題があったので、
+新アカウントでは Chatbot のような一部のリソースを除いてコード化に取り組んでいます。
 
 ### ステートファイルの分離
 
@@ -161,10 +125,7 @@ data "aws_iam_policy_document" "this" {
         └── variables.tf
 ```
 
-別件ではこののように環境ごとにステートファイルを分離していたのですが、この構成は学習コストが低い一方で問題もありました。
-
-- ステートファイルが巨大でデプロイが遅い
-- コードの見通しが悪い
+以前、上記のように環境ごとにステートファイルを分離していたのですが、この構成は学習コストが低い一方で、 `tfstate` が巨大なりデプロイが遅くなる、コードの見通しが悪くなるなどの課題もありました。
 
 今回の構成は、環境フォルダ配下にコンポーネントレベルで分離しています。コンポーネントは一緒にデプロイされる可能性のあるリソースの集まりです。
 
@@ -177,7 +138,7 @@ data "aws_iam_policy_document" "this" {
         │   └── secrets
         ├── monitoring
         ├── network
-    │   ├── vpc
+        ├── vpc
         │   └── alb
         ├── security
         │   ├── iam-role
@@ -195,12 +156,15 @@ data "aws_iam_policy_document" "this" {
 - コンポーネントの責務が明確になるので、コードの見通しが良くなる
 - 一つのステートファイルの破損が他に影響しないので安全性が向上する
 
-一方で、以下のようなデメリットも存在します。
+一方で、デメリットも存在します。
 
-**設定ファイルを各階層に作らないといけないので、これを DRY にする工夫が必要になる**
+#### 設定ファイルを DRY にする工夫が必要になる
 
  [Terragrunt](https://terragrunt.gruntwork.io/) という Terraform のラッパーツールを活用するとバックエンドや `provider`  の設定ファイルを DRY にすることができます。
+ 
+ terragrunt の`generate` ブロックを利用すると `terragrunt` の working directory にファイルを生成することができるので、これを利用して provider と backend の設定ファイルを DRY にすることができます。
 
+:::details generate ブロック
 ```hcl
 # terragrunt.hcl
 
@@ -238,18 +202,12 @@ generate "provider" {
   EOF
 }
 ```
+:::
 
-terragrunt の`generate` ブロックを利用すると `terragrunt` の working directory にファイルを生成することができるので、これを利用して provider と backend の設定ファイルを DRY にすることができます。
 
-**コンポーネント間に依存関係が出来るので `terraform apply` のワンコマンドでデプロイ出来なくなる**
+#### `terraform apply` のワンコマンドでデプロイ出来ない
 
----
-
-コンポーネント単位で分けている都合上、デプロイを順番通りに実行しなければいけません。
-
-例えば `vpc` をデプロイしてから `rds` の順番に apply する必要があります。
-
-`terragrunt` の `dependencies` ブロックを利用して `apply` の順番を制御できます。さらに、別コンポーネントの `outputs` を参照したい場合は、 `dependecy` ブロックを利用して `variables` として渡すことも可能です。
+インフラをコンポーネント単位で分けている都合上、`apply` を一度に実行することが出来ません。コンポーネントA->コンポーネントB->コンポーネントC...といったように順番に `apply` していく必要がありますが、`terragrunt` には [run-all](https://terragrunt.gruntwork.io/docs/reference/cli-options/#run-all) という再起的に `terraform` コマンドを実行してくれるオプションがあります。 また、`terragrunt` の `dependencies` ブロックを利用して `apply` の実行順を制御することが出来ます。
 
 ```hcl
 include "root" {
@@ -264,6 +222,10 @@ dependencies {
 
 dependency "vpc" {
   config_path = find_in_parent_folders("network/vpc")
+  mock_outputs = {
+    vpc_id = "vpc-xxxxxxxxxxxxxxxxx"
+    subnet_ids = ["subnet-xxxxxxxxx", "subnet-xxxxxxxxx"]
+  }
 }
 
 inputs = {
@@ -272,7 +234,8 @@ inputs = {
 }
 ```
 
-このように `terragrunt.hcl` を記述して `terragrunt run-all plan` を実行すると、
+このように `terragrunt.hcl` を記述して `production` ディレクトリで
+ `terragrunt run-all apply` を実行すると、順番にコンポーネントがデプロイされます。
 
 ```hcl
 Group 1
@@ -282,11 +245,11 @@ Group 2
 - Module /app/environments/production/storage/rds-mysql
 ```
 
-このように先に `vpc` で `plan` が実行され、次に `rds-mysql` で実行されていることが分かります。
+さらに `dependency` ブロックを利用して別コンポーネントの `outputs` を参照することも出来ます。`outputs` がまだデプロイされていない場合は、`mock_outputs` を設定することでコンポーネントをテストすることが出来ます。
 
-### workspace を使わなかった理由
+### Terraform Workspace を使わなかった理由
 
-インフラのコード化において、開発環境や本番環境といった複数の環境を管理する方法として、Terraform Workspace という機能があります。この機能を使用すると、同じ Terraform コードから異なる環境のインフラを作成できます。
+インフラのコード化において、ステージング環境や本番環境といった複数の環境を管理する方法として、[Terraform Workspace](https://developer.hashicorp.com/terraform/language/state/workspaces) という機能があります。この機能を使用すると、同じ Terraform コードから異なる環境のインフラを作成できます。
 
 ```hcl
 resource "aws_instance" "this" {
@@ -296,31 +259,31 @@ resource "aws_instance" "this" {
     Environment = terraform.workspace
   }
 }
-
 ```
 
-以前、小規模で環境間の差がそこまでないと考えていたプロジェクトで Workspace を採用したことがあるのですが、それでも `terraform.workspace == "production"` のようなコードが散在することになり、今回は見送りました。というより使う勇気がありませんでした。。。
+以前、小規模で環境間の差がそこまでないと考えていたプロジェクトで Workspace を採用したことがあるのですが、それでも `terraform.workspace == "production"` のようなコードが散在することになり、今回は見送りました。というより使う勇気がありませんでした😭
 
 ### AWS パブリックモジュールの活用
 
-コード化に関しては、AWS が提供する [パブリックモジュール](https://github.com/terraform-aws-modules) を採用しました。
+実装面では AWS 公式が提供する [パブリックモジュール](https://github.com/terraform-aws-modules) を採用しました。
 
-理由としては、自分の技術的な習熟度では公式のモジュールより使いやすいモジュールを作れる気がしないのと、公式のモジュールを使うと簡単に [AWS のセキュリティのベストプラクティス](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/fsbp-standard.html) に準拠した設定になるように構成されている所です。
+理由としては、私のの技術的な習熟度では公式のモジュールより使いやすいモジュールを作れる気がしなかったのと、公式のモジュールを使うと簡単に [AWS のセキュリティのベストプラクティス](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/fsbp-standard.html) に準拠した設定になるからです。
 
-例えば、[S3.5](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/s3-controls.html#s3-5) では HTTPS のリクエストのみ許可するバケットポリシーを設定する必要があるのですが、これは下記のように `attach_deny_insecure_transport_policy` を `true` にするだけで、
+例えば、[S3.5](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/s3-controls.html#s3-5) では HTTPS のリクエストのみ許可するバケットポリシーを設定する必要があるのですが、これは下記のように `attach_deny_insecure_transport_policy` を `true` にするだけで
 
 ```hcl
 module "s3_bucket_for_logs" {
   source = "terraform-aws-modules/s3-bucket/aws"
 
-  bucket = "example-bucket"
+  // Other arguments...
 
   attach_deny_insecure_transport_policy = true
 }
 ```
 
-このようにアクセスポリシーを設定してくれます。このようなコードは自分では書きたくないのでありがたいです。
+下記のようなアクセスポリシーを設定してくれます。このようなコードはなるべく自分では書きたくなかったのでありがたいです。
 
+:::details アクセスポリシー
 ```hcl
 data "aws_iam_policy_document" "deny_insecure_transport" {
   count = local.create_bucket && var.attach_deny_insecure_transport_policy ? 1 : 0
@@ -353,32 +316,33 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
   }
 }
 ```
+:::
 
-ただし、パブリックモジュールにもデメリットがあり、基本的に`count` を使用してリソースを作成するので、上記のコード中にもありますが、リソースへのアクセスがインデックスアクセスになってしまうのがイマイチに感じます。ただ個人的に Terraform はあくまで設定ファイルなので、これくらいであれば許容の範囲内と考えています。
+ただし、パブリックモジュールにもデメリットがあり、基本的に`count` を使用してリソースを作成するので、上記のコード中にもありますが、リソースへのアクセスがインデックスアクセスになってしまいます。
 
-# リソースの移行
+## 4. リソースの移行
 
-### ネットワーク編
+### ネットワーク
 
-ネットワーク関連のリソースに関しては完全に新規で作成しつつ、AWS サービスとの通信に関しては AWS PrivatLink 経由でアクセスするように構成を変更しました。
+ネットワーク関連のリソースに関しては完全に新規で作成しつつ、AWS サービスとの通信に関しては AWS PrivateLink 経由でアクセスするように構成を変更しました。
 
-以前は下記の図のようにインターネットゲートウェイ経由で AWS サービスと通信していました。
+![](/images/internet_gateway.png)
 
-構成図A
+以前は上記の図のようにインターネットゲートウェイ経由で AWS サービスと通信していました。
 
-構成図B
+![](/images/vpc_endpoint.png)
 
-この構成だと例えば CloudWatch にリクエストを送る場合…
+AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエストを送る場合…
 
-1. まず DNS 解決が行われる。DNS クエリの結果としてエンドポイントネットワークインターフェース(ENI)のプライベート IP が返される
+1. DNS 解決が行われる。DNS クエリの結果としてエンドポイントネットワークインターフェース(ENI)のプライベート IP が返される
 2. 解決されたプライベート IP にリクエストが送られる
 3. ENI から AWS サービスにトラフィックが転送される
 
-という流れになるので、トラフィックは完全にプライベートネットワーク内で完結します。
+という流れになり、トラフィックは完全にプライベートネットワーク内で完結します。
 
-### データベース編
+### データベース
 
-移行元のアカウントの RDS は暗号化されていなかったので、暗号化しつつ移行することになりました。アカウントを移行しなければ
+移行元のアカウントの RDS は暗号化されていなかったので、暗号化しつつ移行することになりました。アカウント間の移行でなければ
 
 1. スナップショットを取得する
 2. スナップショットをコピーするときに暗号化を有効にする
@@ -386,14 +350,12 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
 
 という流れで行けるのですが、移行元アカウントで AWS マネージドキーの KMS で暗号化したスナップショットを移行先アカウントに移行しても、復元することができませんでした。というのも AWS マネージドキーは AWS アカウントの同リージョン内でのみ使用可能なようです。
 
-カスタマーKMS はキーポリシーを修正することで他アカウントに共有することが出来るので、今回は移行先アカウントに KMS を作成し、移行元アカウントの IAM ユーザーに共有し、暗号化する際にこの KMS を指定することで対応しました。
+カスタマーKMS はキーポリシーを修正することで他アカウントに共有することが出来るので、今回は移行先アカウントに KMS を作成し、移行元アカウントの IAM ユーザーに共有し、暗号化する際にこの KMS を指定することで対応しました。他のアカウントに共有するためのキーポリシーはこちらです。
 
-キーポリシーはこちらです。
-
+:::details キーポリシー
 ```json
 {
     "Version": "2012-10-17",
-    "Id": "key-consolepolicy-3",
     "Statement": [
         {
             "Effect": "Allow",
@@ -440,57 +402,62 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
     ]
 }
 ```
+:::
 
-スクショ
+これで移行元のアカウントでスナップショットをコピーする際に上記の KMS の arn を指定して暗号化して、移行先アカウントにスナップショットを共有して復元すれば完了となります。
 
-### S3編
+### S3
 
 S3 バケットのオブジェクトの移行には AWS コンソール内で作業が完結できる [AWS DataSync](https://docs.aws.amazon.com/ja_jp/datasync/latest/userguide/tutorial_s3-s3-cross-account-transfer.html) を利用しました。
 
-**手順1** **移行元アカウントで DataSync ソースロケーションを作成する**
+#### 1. 移行元アカウントで DataSync ソースロケーションを作成する
 
-ここでは移行したい S3 バケットの URI を選択します。IAM ロールは自動で生成されます。
+AWS DataSync コンソールから新しいロケーションを作成します。
+「S3 URI」には移行したい S3 バケットの URI を選択します。この時、IAM ロールが自動で生成されます。
 
-**手順2 移行元アカウントに移行先バケットに書き込む権限を持ったロールを作成する**
+#### 2. 移行元アカウントに移行先バケットに書き込む権限を持ったロールを作成する
 
 IAM ロールを作成する際のユースケースは `DataSync` を選択します。さらに追加で下記のポリシーを IAM ロールに追加します。
 
+:::details 移行用ポリシー
 ```json
 {
-	"Version": "2012-10-17",
-	"Statement": [
-		{
-			"Action": [
-				"s3:GetBucketLocation",
-				"s3:ListBucket",
-				"s3:ListBucketMultipartUploads"
-			],
-			"Effect": "Allow",
-			"Resource": "arn:aws:s3:::timecrowd-sync-stg-report"
-		},
-		{
-			"Action": [
-				"s3:AbortMultipartUpload",
-				"s3:DeleteObject",
-				"s3:GetObject",
-				"s3:ListMultipartUploadParts",
-				"s3:PutObject",
-				"s3:GetObjectTagging",
-				"s3:PutObjectTagging"
-			],
-			"Effect": "Allow",
-			"Resource": "arn:aws:s3:::timecrowd-sync-stg-report/*"
-		}
-	]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:s3:::example-bucket"
+    },
+    {
+      "Action": [
+        "s3:AbortMultipartUpload",
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListMultipartUploadParts",
+        "s3:PutObject",
+        "s3:GetObjectTagging",
+        "s3:PutObjectTagging"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:s3:::example-bucket/*"
+    }
+  ]
 }
 ```
+:::
 
-**手順3 移行先のアカウントで S3 バケットの ACL を無効にする**
+#### 3. 移行先のアカウントで S3 バケットの ACL を無効にする
 
 バケットを選択して「アクセス許可」タブを選択し、「オブジェクト所有者」から「ACL無効(推奨)」を選択します。
 
-**手順4** **移行先アカウントで S3 バケットポリシーを更新します。**
+#### 4. 移行先アカウントで S3 バケットポリシーを更新する
 
+:::details バケットポリシー
 ```json
 {
     "Version": "2012-10-17",
@@ -501,8 +468,8 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
             "Principal": "*",
             "Action": "s3:*",
             "Resource": [
-                "arn:aws:s3:::timecrowd-sync-stg-report/*",
-                "arn:aws:s3:::timecrowd-sync-stg-report"
+                "arn:aws:s3:::example-bucket/*",
+                "arn:aws:s3:::example-bucket"
             ],
             "Condition": {
                 "NumericLessThan": {
@@ -516,8 +483,8 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
             "Principal": "*",
             "Action": "s3:*",
             "Resource": [
-                "arn:aws:s3:::timecrowd-sync-stg-report/*",
-                "arn:aws:s3:::timecrowd-sync-stg-report"
+                "arn:aws:s3:::example-bucket/*",
+                "arn:aws:s3:::example-bucket"
             ],
             "Condition": {
                 "Bool": {
@@ -529,7 +496,7 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
             "Sid": "DataSyncCreateS3LocationAndTaskAccess",
             "Effect": "Allow",
             "Principal": {
-                "AWS": "arn:aws:iam::446736013352:role/EnterpriseDataSyncRole"
+                "AWS": "<手順2で作成した移行用ロールのARN>"
             },
             "Action": [
                 "s3:PutObjectTagging",
@@ -544,34 +511,36 @@ IAM ロールを作成する際のユースケースは `DataSync` を選択し�
                 "s3:AbortMultipartUpload"
             ],
             "Resource": [
-                "arn:aws:s3:::timecrowd-sync-stg-report/*",
-                "arn:aws:s3:::timecrowd-sync-stg-report"
+                "arn:aws:s3:::example-bucket/*",
+                "arn:aws:s3:::example-bucket"
             ]
         },
         {
             "Sid": "DataSyncCreateS3Location",
             "Effect": "Allow",
             "Principal": {
-                "AWS": "arn:aws:iam::446736013352:role/EnterpriseDataSyncRole"
+                "AWS": "<手順2で作成した移行用ロールのARN>"
             },
             "Action": "s3:ListBucket",
-            "Resource": "arn:aws:s3:::timecrowd-sync-stg-report"
-        },
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::471112578051:role/enterprise_staging-20241108070716256100000006"
-            },
-            "Action": "s3:GetObject",
-            "Resource": [
-                "arn:aws:s3:::timecrowd-sync-stg-report/*",
-                "arn:aws:s3:::timecrowd-sync-stg-report"
-            ]
+            "Resource": "arn:aws:s3:::example-bucket"
         }
     ]
 }
 ```
+:::
 
-**手順5 移行元アカウントで、DataSync ロケーションを作成する**
+#### 5. 移行元アカウントで、DataSync ロケーションを作成する
 
 移行先アカウントが別アカウントの場合は、コンソールからロケーションを作成することが出来ないので、 AWS Cloud Shell から CLI を利用して作成することになります。
+
+```sh
+aws datasync create-location-s3 \
+  --s3-bucket-arn arn:aws:s3:::<移行先のバケット名> \
+  --s3-config '{
+    "BucketAccessRoleArn":"arn:aws:iam::123456789123:role/<2で作ったロール名>"
+  }'
+```
+
+#### 6. 移行元アカウントで、DataSync 転送タスクを作成して開始する
+
+まず「送信元のロケーション」を既存のロケーションから選択し、次に「送信先のロケーション」を選択します。最後にオプションを選択し、タスクを開始すればオブジェクトの移行が完了します。

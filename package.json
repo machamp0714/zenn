@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "textlint articles/react-rails-structure.md"
+    "lint": "textlint articles/migration-of-aws-accounts.md"
   },
   "keywords": [],
   "author": "",
