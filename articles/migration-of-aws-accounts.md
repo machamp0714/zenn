@@ -1,21 +1,24 @@
 ---
 title: "AWSアカウントを移行する際にやったことまとめ"
 emoji: "🐳"
-type: "tech" # tech: 技術記事 / idea: アイデア
+type: "tech"
 topics: ["AWS", "terraform"]
 published: false
 ---
+
+この記事は、[エンジニアと人生 Advent Calendar 2024](https://adventar.org/calendars/10296) の Day6 の記事です！
+Day5 の記事は oka.yuji さんの [【NFC】モバイルSuicaを利用した認証システムを作ってOMMFに出展してきた話【アドベントカレンダー2024】](https://note.com/oka_yuji/n/na526c8d6ada1) です！
 
 ## 1. はじめに
 
 最近アサインされたプロジェクトで、AWS アカウントの廃止が決定し、新しいアカウントへの移行を進めることになりました。旧アカウントの現状を詳しく確認していくと、リソースの管理において以下のような問題を抱えていることがわかりました。
 
-- リソースの作成者や作成時期、作成意図が不明確な状態となっていた
+- リソースの作成者、作成意図が不明確な状態となっていた
 - サーバーがパブリックサブネット上に配置されており、セキュリティリスクが存在していた
 - DB などの重要なリソースが暗号化されていない状態でした
 - IAM ユーザーが複数のアカウントに分散していた
 
-本記事では、これらの課題を解決しながら、新環境への移行作業で実施した内容について詳しく説明していきます。既存環境の問題点を改善しつつ、より安全で管理しやすい AWS 環境を構築するための取り組みをまとめています。
+本記事では、新環境への移行作業で実施した内容を一部説明していきます。
 
 ## 2. AWS Organizations の導入
 
@@ -24,16 +27,18 @@ published: false
 組織内のアカウントは「管理アカウント」と「メンバーアカウント」の2種類に分別され、「管理アカウント」とは、 Organization を作成するためのアカウントのことで、それ以外を「メンバーアカウント」と呼びます。管理アカウントは、メンバーアカウントで発生した料金を支払う責任を持ちます。
 
 :::message alert
-管理アカウントを変更できないので注意が必要です。
+管理アカウントは変更できないので注意が必要です
 
-さらに、管理アカウント内でのリソース作成は避けるべきです。これは、サービス制御ポリシー（SCP）が管理アカウント内のリソースには適用されないためです。
+また、管理アカウント内でのリソース作成は避けるべきです。これは、サービス制御ポリシー（SCP）が管理アカウント内のリソースには適用されないためです。
 :::
 
 ### Organization の設計
 
-Organization の設計は悩ましいのですが、公式が設計方針を示してくれています。
+Organization の設計は公式が方針を示してくれていますが、これらすべてを参考にするのは時間的にもエンジニアのリソースを考慮しても難しかったので、セキュリティ用のアカウント設計のみ参考にしました。
 
 https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/architecture.html
+
+[SecurityHub](https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub.html) は AWS Organizations と統合することで、組織下のアカウントの SecurityHub を管理できます。管理アカウントから SecurityHub のコンソールに移動し、管理を委任するアカウント指定することで利用を開始できます。今回は「Security」という OU を作成し、そこに SecurityHub の管理用アカウントを作成しました。
 
 ### IAM リソースの棚卸し
 
@@ -70,7 +75,7 @@ resource "aws_iam_role" "this" {
 
 resource "aws_iam_role_policy_attachment" "this" {
   role       = aws_iam_role.this.name
-  policy_arn = each.value.policy_arn
+  policy_arn = local.policy_arn
 }
 
 data "aws_iam_policy_document" "this" {
@@ -125,7 +130,7 @@ data "aws_iam_policy_document" "this" {
         └── variables.tf
 ```
 
-以前、上記のように環境ごとにステートファイルを分離していたのですが、この構成は学習コストが低い一方で、 `tfstate` が巨大なりデプロイが遅くなる、コードの見通しが悪くなるなどの課題もありました。
+以前は上記のように環境ごとにステートファイルを分離していたのですが、この構成は学習コストが低い一方で、 `tfstate` が巨大なりデプロイが遅くなる、コードの見通しが悪くなるなどの課題もありました。
 
 今回の構成は、環境フォルダ配下にコンポーネントレベルで分離しています。コンポーネントは一緒にデプロイされる可能性のあるリソースの集まりです。
 
@@ -138,8 +143,6 @@ data "aws_iam_policy_document" "this" {
         │   └── secrets
         ├── monitoring
         ├── network
-        ├── vpc
-        │   └── alb
         ├── security
         │   ├── iam-role
         │   ├── oidc
@@ -267,7 +270,7 @@ resource "aws_instance" "this" {
 
 実装面では AWS 公式が提供する [パブリックモジュール](https://github.com/terraform-aws-modules) を採用しました。
 
-理由としては、私のの技術的な習熟度では公式のモジュールより使いやすいモジュールを作れる気がしなかったのと、公式のモジュールを使うと簡単に [AWS のセキュリティのベストプラクティス](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/fsbp-standard.html) に準拠した設定になるからです。
+理由としては、私の技術的な習熟度では公式のモジュールより使いやすいモジュールを作れる気がしなかったのと、公式のモジュールを使うと簡単に [AWS のセキュリティのベストプラクティス](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/fsbp-standard.html) に準拠した設定になるからです。
 
 例えば、[S3.5](https://docs.aws.amazon.com/ja_jp/securityhub/latest/userguide/s3-controls.html#s3-5) では HTTPS のリクエストのみ許可するバケットポリシーを設定する必要があるのですが、これは下記のように `attach_deny_insecure_transport_policy` を `true` にするだけで
 
@@ -322,6 +325,10 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
 
 ## 4. リソースの移行
 
+:::message
+まだすべての移行が完了していないので、一部完了済みのものだけ記載しています。
+:::
+
 ### ネットワーク
 
 ネットワーク関連のリソースに関しては完全に新規で作成しつつ、AWS サービスとの通信に関しては AWS PrivateLink 経由でアクセスするように構成を変更しました。
@@ -332,7 +339,7 @@ data "aws_iam_policy_document" "deny_insecure_transport" {
 
 ![](/images/vpc_endpoint.png)
 
-AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエストを送る場合…
+AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエストを送る場合、
 
 1. DNS 解決が行なわれる。DNS クエリの結果としてエンドポイントネットワークインターフェース(ENI)のプライベート IP が返される
 2. 解決されたプライベート IP にリクエストが送られる
@@ -348,7 +355,7 @@ AWS PrivateLink を利用した構成だと例えば CloudWatch にリクエス�
 2. スナップショットをコピーするときに暗号化を有効にする
 3. スナップショットを復元
 
-という流れで行けるのですが、移行元アカウントで AWS マネージドキーの KMS で暗号化したスナップショットを移行先アカウントに移行しても、復元できませんでした。というのも AWS マネージドキーは AWS アカウントの同リージョン内でのみ使用可能なようです。
+という流れで暗号化できるのですが、移行元アカウントで AWS マネージドキーの KMS で暗号化したスナップショットを移行先アカウントに移行しても、復元できませんでした。というのも AWS マネージドキーは AWS アカウントの同リージョン内でのみ使用可能なようです。
 
 カスタマーKMS はキーポリシーを修正することで他アカウントに共有できるので、今回は移行先アカウントに KMS を作成し、移行元アカウントの IAM ユーザーに共有し、暗号化する際にこの KMS を指定することで対応しました。他のアカウントに共有するためのキーポリシーはこちらです。
 
