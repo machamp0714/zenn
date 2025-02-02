@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "textlint articles/migration-of-aws-accounts.md"
+    "lint": "textlint articles/raycast-extension.md"
   },
   "keywords": [],
   "author": "",
