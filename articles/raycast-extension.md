@@ -6,7 +6,7 @@ topics: ["Raycast", "React"]
 published: false
 ---
 
-これまでランチャーアプリを使ったことがなかったのですが、Raycast を試したところ、その使い勝手の良さにすっかりハマってしまいました。今では、Magnet や Clipy で行っていた作業を Raycast に移行したり、Obsidian へのメモを Raycast から直接行えるようにするなど、様々なアクションを Raycast を起点として実行しています。
+これまでランチャーアプリを使ったことがなかったのですが、Raycast を試したところ、その使い勝手の良さにすっかりハマってしまいました。今では、Magnet や Clipy で行なっていた作業を Raycast に移行したり、Obsidian へのメモを Raycast から直接行なえるようにするなど、さまざまなアクションを Raycast を起点として実行しています。
 
 そこで、普段業務で使用している TimeCrowd という時間管理ツールでの打刻も Raycast から実行できるようにしたいと考え、今回拡張機能を作ることにしました。
 
@@ -26,7 +26,7 @@ https://www.raycast.com/machamp0714/timecrowd-tracker
 
 ## 実装
 
-Raycast 拡張機能の開発は、Raycast アプリケーションに内蔵された「Create Extension」コマンドを実行するだけで開始できます。開発環境には `eslint` と `prettier` が予め組み込まれているため、すぐにコーディングに取り掛かることができます。
+Raycast 拡張機能の開発は、Raycast アプリケーションに内蔵された「Create Extension」コマンドを実行するだけで開始できます。開発環境には `eslint` と `prettier` があらかじめ組み込まれているため、すぐにコーディングに取り掛かることができます。
 
 拡張機能の UI は、Raycast が提供する Component を活用して構築します。外部 API との連携が不要な拡張機能であれば、下記のドキュメントを参照するだけでほぼ実装が完了すると思います。
 
@@ -75,7 +75,7 @@ TimeCrowd API からデータを取得する場合、Raycast が提供する `us
 
 https://developers.raycast.com/utilities/react-hooks/usecachedpromise
 
-`useCachedPromise` で取得したデータを更新したい場合、`revalidate` 関数を使用します。例えば、TimeCrowd で新しいタスクを作成した場合、一覧データを更新する必要がありますが、このとき、revalidate を実行することで、キャッシュを無効化し、最新のデータを取得することができます。
+`useCachedPromise` で取得したデータを更新したい場合、`revalidate` 関数を使用します。例えば、TimeCrowd で新しいタスクを作成した場合、一覧データを更新する必要がありますが、このとき、revalidate を実行することで、キャッシュを無効化し、最新のデータを取得できます。
 
 ### Toast
 
@@ -100,7 +100,7 @@ const { handleSubmit, itemProps, setValue, setValidationError } = useForm<TimeEn
 ## 公開準備
 
 コマンドの実装が完了したら、拡張機能を公開するための準備に取り掛かります。
-Raycast 拡張機能の公開は、基本的に公式ドキュメントに記載されている手順に従って行います。
+Raycast 拡張機能の公開は、基本的に公式ドキュメントに記載されている手順に従って行ないます。
 
 https://developers.raycast.com/basics/prepare-an-extension-for-store
 
@@ -109,7 +109,7 @@ https://developers.raycast.com/basics/prepare-an-extension-for-store
 
 https://github.com/raycast/extensions/pull/16178
 
-ここでは、私が実際に行った公開準備の手順についてまとめます。
+ここでは、私が実際に行なった公開準備の手順についてまとめます。
 
 ### アイコン
 
@@ -124,13 +124,13 @@ Raycast 拡張機能の公開にあたっては、最低でも 3 つのスクリ
 
 1. Raycast の設定画面を開き、「Advanced」タブを選択します。
 2. Window Capture のショートカットキーを設定します。
-3. 拡張機能を実行し、ショートカットキーを押下することで、Raycast のスクリーンショットを撮影できます。
+3. 拡張機能を実行し、ショートカットキーを押すことで、Raycast のスクリーンショットを撮影できます。
 
 ![](/images/window-capture.png)
 
 ### README
 
-README にはAPI キーの取得方法とコマンドの簡単な説明だけ記載しました。文章は Claude に翻訳してもらったものをそのまま記載しています。
+README には API キーの取得方法とコマンドの簡単な説明だけ記載しました。文章は Claude に翻訳してもらったものをそのまま記載しています。
 
 https://github.com/machamp0714/timecrowd-tracker/blob/main/README.md
 
@@ -140,4 +140,4 @@ https://github.com/machamp0714/timecrowd-tracker/blob/main/README.md
 
 ## さいごに
 
-拡張機能ですが、Raycast API を組み合わせるだけで簡単に実装できたので、今後も何かやりたいことが出てきたら作ってみようかな、と思いました。最後まで読んで頂きありがとうございます🙇‍♂️
+拡張機能ですが、Raycast API を組み合わせるだけで簡単に実装できたので、今後も何かやりたいことが出てきたら作ってみようかな、と思いました。最後まで読んでいただきありがとうございます🙇‍♂️
