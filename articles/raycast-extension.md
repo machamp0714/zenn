@@ -3,12 +3,12 @@ title: "【Raycast Extension】TimeCrowd 打刻ツールを自作した"
 emoji: "🐬"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Raycast", "React"]
-published: false
+published: true
 ---
 
-これまでランチャーアプリを使ったことがなかったのですが、Raycast を試したところ、その使い勝手の良さにすっかりハマってしまいました。今では、Magnet や Clipy で行なっていた作業を Raycast に移行したり、Obsidian へのメモを Raycast から直接行なえるようにするなど、さまざまなアクションを Raycast を起点として実行しています。
+これまでランチャーアプリを使ったことがなかったのですが、Raycast を試したところ、使い勝手の良さにすっかりハマってしまいました。今では、Magnet や Clipy で行なっていた作業を Raycast に移行したり、Obsidian へのメモを Raycast から直接行なえるようにするなど、さまざまなアクションを Raycast を起点として実行しています。
 
-そこで、普段業務で使用している TimeCrowd という時間管理ツールでの打刻も Raycast から実行できるようにしたいと考え、今回拡張機能を作ることにしました。
+そこで、普段業務で使用している TimeCrowd という時間管理ツールでの打刻も Raycast から実行できるようにしたいと思い、今回拡張機能を作ることにしました。
 
 ## 作ったもの
 
@@ -71,7 +71,7 @@ console.log(preferences.accessToken);
 
 ### API 連携
 
-TimeCrowd API からデータを取得する場合、Raycast が提供する `useCachedPromise` という React Hook を活用することで、`stale-while-revalidate` 戦略に基づいたデータ取得とキャッシュの仕組みを実現できます。
+API からデータを取得する場合、Raycast が提供する `useCachedPromise` という React Hook を活用することで、`stale-while-revalidate` 戦略に基づいたデータ取得とキャッシュの仕組みを実現できます。
 
 https://developers.raycast.com/utilities/react-hooks/usecachedpromise
 
@@ -89,6 +89,7 @@ const { handleSubmit, itemProps, setValue, setValidationError } = useForm<TimeEn
     // 省略
     try {
       await createTimeEntry(values);
+      revalidate();
       showToast(Toast.Style.Success, `Started Time Entry`);
     } catch (error) {
       showToast(Toast.Style.Failure, "Failed to create Time Entry");
@@ -104,7 +105,7 @@ Raycast 拡張機能の公開は、基本的に公式ドキュメントに記載
 
 https://developers.raycast.com/basics/prepare-an-extension-for-store
 
-私の場合は、特に指摘を受けることもなくスムーズに承認されました。
+私の場合は、特に指摘を受けることもなく2週間程度で承認されました。
 実際の PR です↓
 
 https://github.com/raycast/extensions/pull/16178
@@ -136,7 +137,7 @@ https://github.com/machamp0714/timecrowd-tracker/blob/main/README.md
 
 公開するためにやったことの紹介は以上となります。アイコンやスクショも Raycast が提供しているものを利用するだけなのでかなり楽でした。拡張機能のタイトルとコマンドの命名だけ注意していれば、割と簡単に公開まで行けると思います。
 
-公開準備が整ったら `npm run publish` を実行してレビューを待ちます。私は2週間程度で公開されました。
+公開準備が整ったら `npm run publish` を実行してレビューを待ちます。
 
 ## さいごに
 
